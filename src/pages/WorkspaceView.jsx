@@ -16,7 +16,7 @@ import {
   Sparkles,
   Loader2,
   RefreshCcw,
-  NotebookPen,
+  BookOpenCheck,
 } from 'lucide-react';
 
 const TOOLKIT_BY_VIEW = {
@@ -276,7 +276,7 @@ export const WorkspaceView = ({ onNavigate }) => {
 
                 <section className="space-y-2">
                   <header className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <NotebookPen className="h-4 w-4 text-primary" />
+                    <BookOpenCheck className="h-4 w-4 text-primary" />
                     Recommended Study Toolkit
                   </header>
                   <p className="text-sm text-muted-foreground">

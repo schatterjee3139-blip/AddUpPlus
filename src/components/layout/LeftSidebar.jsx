@@ -84,8 +84,30 @@ const ThemeToggle = ({ isCollapsed }) => {
   );
 };
 
-export const LeftSidebar = ({ currentPage, onNavigate, isCollapsed = false, onCollapseChange }) => {
+export const LeftSidebar = ({
+  currentPage,
+  onNavigate,
+  isCollapsed = false,
+  onCollapseChange,
+  userProfile = null,
+}) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const displayName = [
+    userProfile?.firstName?.trim(),
+    userProfile?.lastName?.trim(),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim() || 'Learner';
+
+  const initials = (
+    (userProfile?.firstName?.[0] || '') + (userProfile?.lastName?.[0] || '')
+  )
+    .toUpperCase()
+    .slice(0, 2) || displayName.slice(0, 1).toUpperCase();
+
+  const userEmail = userProfile?.email?.trim() || '';
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -134,19 +156,27 @@ export const LeftSidebar = ({ currentPage, onNavigate, isCollapsed = false, onCo
       {/* Footer */}
       <div className="mt-auto p-2 space-y-2 border-t border-border">
         <ThemeToggle isCollapsed={isCollapsed} />
-        <TooltipWrapper content={isCollapsed ? 'Cameron' : null}>
+        <TooltipWrapper content={isCollapsed ? displayName : null}>
           <Button
             variant="ghost"
             className={cn('w-full', isCollapsed ? 'justify-center' : 'justify-start')}
           >
             <Avatar className="h-8 w-8">
-              <AvatarImage
-                src="https://placehold.co/100x100/60a5fa/FFFFFF?text=C"
-                alt="Cameron"
-              />
-              <AvatarFallback>C</AvatarFallback>
+              {userProfile?.avatarUrl ? (
+                <AvatarImage src={userProfile.avatarUrl} alt={displayName} />
+              ) : null}
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
-            {!isCollapsed && <span className="ml-3 font-medium">Cameron</span>}
+            {!isCollapsed && (
+              <span className="ml-3 flex flex-col text-left">
+                <span className="font-medium leading-tight">{displayName}</span>
+                {userEmail && (
+                  <span className="text-xs text-muted-foreground leading-tight">
+                    {userEmail}
+                  </span>
+                )}
+              </span>
+            )}
           </Button>
         </TooltipWrapper>
       </div>
