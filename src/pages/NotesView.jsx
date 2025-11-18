@@ -17,6 +17,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { AIModal } from '../components/AIModal';
 import { summarizeContent, explainConcept, simplifyContent, generateFlashcards, generateQuizQuestions } from '../lib/aiHelpers';
+import { stripMarkdown } from '../lib/utils';
 
 const NoteEditorToolbar = ({ onAIAction }) => {
   const [showAIDropdown, setShowAIDropdown] = useState(false);
@@ -145,10 +146,10 @@ const NoteEditorToolbar = ({ onAIAction }) => {
 };
 
 const sections = [
-  { id: 'section-1', title: 'Introduction to Kinetics', level: 0 },
-  { id: 'section-2', title: 'Rate Laws', level: 1 },
-  { id: 'section-3', title: 'First-Order Reactions', level: 2 },
-  { id: 'section-4', title: 'Reaction Mechanisms', level: 1 },
+  { id: 'section-1', title: 'Introduction to Calculus', level: 0 },
+  { id: 'section-2', title: 'Derivatives', level: 1 },
+  { id: 'section-3', title: 'Limits and Continuity', level: 2 },
+  { id: 'section-4', title: 'Integration Techniques', level: 1 },
   { id: 'section-5', title: 'Conclusion', level: 0 },
 ];
 
@@ -280,40 +281,42 @@ export const NotesView = () => {
             className="focus:outline-none min-h-[500px]"
             onInput={(e) => setContent(e.target.textContent)}
           >
-            <h1 id="section-1">Introduction to Kinetics</h1>
+            <h1 id="section-1">Introduction to Calculus</h1>
             <p>
-              Chemical kinetics is the study of the rates of chemical reactions, the
-              factors that affect these rates, and the mechanisms by which reactions
-              occur. It's a fundamental part of physical chemistry.
+              Calculus is the mathematical study of continuous change, focusing on
+              derivatives and integrals. It's a fundamental branch of mathematics that
+              enables us to understand rates of change and accumulation.
             </p>
-            <h2 id="section-2">Rate Laws</h2>
+            <h2 id="section-2">Derivatives</h2>
             <p>
-              A rate law or rate equation for a chemical reaction is an equation that
-              links the initial or forward reaction rate with the concentrations or
-              pressures of the reactants and constant parameters (normally rate
-              coefficients and partial reaction orders).
+              A derivative represents the rate of change of a function with respect to
+              one of its variables. It measures how a function's output value changes
+              as its input value changes, providing the slope of the tangent line at
+              any point on the function's graph.
             </p>
             <div className="bg-muted p-4 rounded-md">
               <p>
-                <strong>Example Callout:</strong> For a reaction{' '}
-                <code>A + B → C</code>, the rate law might be{' '}
-                <code>Rate = k[A][B]²</code>.
+                <strong>Example Callout:</strong> For a function{' '}
+                <code>f(x) = x²</code>, the derivative is{' '}
+                <code>f'(x) = 2x</code>.
               </p>
             </div>
-            <h3 id="section-3">First-Order Reactions</h3>
+            <h3 id="section-3">Limits and Continuity</h3>
             <p>
-              A first-order reaction is a reaction that proceeds at a rate that
-              depends linearly on only one reactant concentration.
+              A limit describes the behavior of a function as its input approaches a
+              particular value. Continuity means that small changes in the input result
+              in small changes in the output, with no sudden jumps or breaks.
             </p>
             <pre>
-              <code className="language-js">{`// Integrated rate law for first-order
-ln[A]t = -kt + ln[A]0`}</code>
+              <code className="language-js">{`// Limit definition of derivative
+lim(h→0) [f(x+h) - f(x)] / h`}</code>
             </pre>
-            <h2 id="section-4">Reaction Mechanisms</h2>
+            <h2 id="section-4">Integration Techniques</h2>
             <p>
-              A reaction mechanism is the step-by-step sequence of elementary
-              reactions by which overall chemical change occurs. The slowest step in
-              a reaction mechanism is called the rate-determining step.
+              Integration is the process of finding the integral of a function, which
+              represents the area under a curve or the accumulation of quantities.
+              Common techniques include substitution, integration by parts, and
+              partial fractions.
             </p>
         </div>
       </div>
@@ -344,7 +347,7 @@ ln[A]t = -kt + ln[A]0`}</code>
            aiAction === 'flashcards' ? 'Generated Flashcards' :
            aiAction === 'quiz' ? 'Quiz Questions' : 'AI Result'}
         </h3>
-        <p className="text-sm whitespace-pre-wrap">{aiResult}</p>
+        <p className="text-sm whitespace-pre-wrap">{stripMarkdown(aiResult)}</p>
         <Button
           variant="ghost"
           size="sm"

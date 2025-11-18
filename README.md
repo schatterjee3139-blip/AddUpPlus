@@ -74,13 +74,37 @@ src/
 
 ## Environment Variables
 
-Create a `.env` file in the root directory with your NVIDIA API key:
+Create a `.env` file in the root directory with your API keys. You can copy `.env.example` as a template:
 
-```env
-VITE_NVIDIA_API_KEY=your_nvidia_api_key_here
+```bash
+cp .env.example .env
 ```
 
-The API key is already configured. Restart the dev server after creating/updating the `.env` file.
+Then edit `.env` and add your actual API keys:
+
+```env
+# NVIDIA API Configuration
+# Get your API key from: https://build.nvidia.com/
+VITE_NVIDIA_API_KEY=your_nvidia_api_key_here
+
+# YouTube Data API Configuration
+# Get your API key from: https://console.cloud.google.com/apis/credentials
+VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
+
+# Firebase Configuration
+# Get these values from your Firebase project settings
+VITE_FIREBASE_API_KEY=your_firebase_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=your-firebase-app-id
+```
+
+**Important:** 
+- Never commit your `.env` file to GitHub (it's already in `.gitignore`)
+- The `.env.example` file is safe to commit as it only contains placeholder values
+- Restart the dev server after creating/updating the `.env` file
 
 ## Notes
 

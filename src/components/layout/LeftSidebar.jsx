@@ -5,7 +5,6 @@ import {
   BookOpen,
   Layers,
   CheckSquare,
-  Network,
   Calendar,
   BarChart3,
   Settings,
@@ -17,11 +16,14 @@ import {
   Menu,
   Pi,
   Briefcase,
+  LogOut,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/Avatar';
 import { TooltipWrapper } from '../ui/Tooltip';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
 const navItems = [
@@ -30,9 +32,9 @@ const navItems = [
   { name: 'Workspace', icon: Briefcase, page: 'workspace' },
   { name: 'Flashcards', icon: Layers, page: 'flashcards' },
   { name: 'Quizzes', icon: CheckSquare, page: 'quizzes' },
-  { name: 'Concept Maps', icon: Network, page: 'concepts' },
   { name: 'Equations', icon: Pi, page: 'equations' },
   { name: 'Planner', icon: Calendar, page: 'planner' },
+  { name: 'Tutors', icon: GraduationCap, page: 'tutors' },
   { name: 'Analytics', icon: BarChart3, page: 'analytics' },
   { name: 'Settings', icon: Settings, page: 'settings' },
 ];
@@ -42,13 +44,13 @@ const NavItem = ({ item, currentPage, onNavigate, isCollapsed }) => (
     <Button
       variant={currentPage === item.page ? 'secondary' : 'ghost'}
       className={cn(
-        'w-full justify-start',
+        'w-full justify-start flex-shrink-0',
         isCollapsed ? 'justify-center' : 'justify-start'
       )}
       onClick={() => onNavigate(item.page)}
     >
-      <item.icon className={cn('h-5 w-5', isCollapsed ? '' : 'mr-3')} />
-      {!isCollapsed && <span>{item.name}</span>}
+      <item.icon className={cn('h-5 w-5 flex-shrink-0', isCollapsed ? '' : 'mr-3')} />
+      {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
     </Button>
   </TooltipWrapper>
 );
@@ -92,6 +94,7 @@ export const LeftSidebar = ({
   userProfile = null,
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { logout } = useAuth();
 
   const displayName = [
     userProfile?.firstName?.trim(),
@@ -108,6 +111,15 @@ export const LeftSidebar = ({
     .slice(0, 2) || displayName.slice(0, 1).toUpperCase();
 
   const userEmail = userProfile?.email?.trim() || '';
+  const photoURL = userProfile?.photoURL || null;
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    }
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -118,10 +130,20 @@ export const LeftSidebar = ({
           isCollapsed ? 'justify-center' : 'justify-between'
         )}
       >
-        {!isCollapsed && (
-          <h1 className="text-xl font-bold text-primary whitespace-nowrap">
-            Study OS
-          </h1>
+        {!isCollapsed ? (
+          <button
+            onClick={() => onNavigate('today')}
+            className="text-xl font-bold text-primary whitespace-nowrap hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            AddUp+
+          </button>
+        ) : (
+          <button
+            onClick={() => onNavigate('today')}
+            className="text-xl font-bold text-primary hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            A+
+          </button>
         )}
         <Button
           variant="ghost"
@@ -138,7 +160,7 @@ export const LeftSidebar = ({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-2 py-4">
+      <nav className="flex-1 flex flex-col space-y-1 px-2 py-4">
         {navItems.map((item) => (
           <NavItem
             key={item.name}
@@ -156,29 +178,43 @@ export const LeftSidebar = ({
       {/* Footer */}
       <div className="mt-auto p-2 space-y-2 border-t border-border">
         <ThemeToggle isCollapsed={isCollapsed} />
-        <TooltipWrapper content={isCollapsed ? displayName : null}>
-          <Button
-            variant="ghost"
-            className={cn('w-full', isCollapsed ? 'justify-center' : 'justify-start')}
-          >
-            <Avatar className="h-8 w-8">
-              {userProfile?.avatarUrl ? (
-                <AvatarImage src={userProfile.avatarUrl} alt={displayName} />
-              ) : null}
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            {!isCollapsed && (
-              <span className="ml-3 flex flex-col text-left">
-                <span className="font-medium leading-tight">{displayName}</span>
-                {userEmail && (
-                  <span className="text-xs text-muted-foreground leading-tight">
-                    {userEmail}
+        {userProfile && (
+          <>
+            <TooltipWrapper content={isCollapsed ? displayName : null}>
+              <Button
+                variant="ghost"
+                className={cn('w-full', isCollapsed ? 'justify-center' : 'justify-start')}
+              >
+                <Avatar className="h-8 w-8">
+                  {photoURL ? (
+                    <AvatarImage src={photoURL} alt={displayName} />
+                  ) : null}
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                  <span className="ml-3 flex flex-col text-left">
+                    <span className="font-medium leading-tight">{displayName}</span>
+                    {userEmail && (
+                      <span className="text-xs text-muted-foreground leading-tight">
+                        {userEmail}
+                      </span>
+                    )}
                   </span>
                 )}
-              </span>
-            )}
-          </Button>
-        </TooltipWrapper>
+              </Button>
+            </TooltipWrapper>
+            <TooltipWrapper content={isCollapsed ? 'Sign Out' : null}>
+              <Button
+                variant="ghost"
+                className={cn('w-full', isCollapsed ? 'justify-center' : 'justify-start')}
+                onClick={handleSignOut}
+              >
+                <LogOut className={cn('h-5 w-5', isCollapsed ? '' : 'mr-3')} />
+                {!isCollapsed && <span>Sign Out</span>}
+              </Button>
+            </TooltipWrapper>
+          </>
+        )}
       </div>
     </div>
   );

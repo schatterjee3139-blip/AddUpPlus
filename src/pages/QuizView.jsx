@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Loader2, Sparkles, Trophy, TrendingUp, RotateCcw, CheckSquare } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { generateQuizQuestions } from '../lib/aiHelpers';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
+import { chatCompletion } from '../lib/api';
+import { stripMarkdown } from '../lib/utils';
+import { motion } from 'framer-motion';
 
 const parseAIQuiz = (raw) => {
   const questions = [];
@@ -38,20 +41,20 @@ const fallbackQuestions = [
   {
     id: 1,
     type: 'mcq',
-    question: 'For a first-order reaction, a plot of _____ versus time is linear.',
-    options: ['[A]', '1/[A]', 'ln[A]', '[A]²'],
-    correctAnswer: 2,
+    question: 'What is the derivative of f(x) = x²?',
+    options: ['x', '2x', 'x²', '2x²'],
+    correctAnswer: 1,
   },
   {
     id: 2,
     type: 'short',
-    question: 'Briefly explain how a catalyst increases the rate of a reaction.',
+    question: 'Briefly explain what a derivative represents in calculus.',
   },
   {
     id: 3,
     type: 'cloze',
-    question: 'Fill in the blank: The slowest step in a reaction mechanism is called the _____-determining step.',
-    answer: 'rate',
+    question: 'Fill in the blank: The integral of a function represents the _____ under its curve.',
+    answer: 'area',
   },
 ];
 
@@ -62,20 +65,70 @@ export const QuizView = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [topic, setTopic] = useState('Chemical Kinetics');
+  const [topic, setTopic] = useState('Insert topic');
   const [questionCount, setQuestionCount] = useState(5);
   const [questions, setQuestions] = useState(fallbackQuestions);
+  const [quizSummary, setQuizSummary] = useState('');
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const { recordQuizResult, recordAIInteraction } = useStudyMetrics();
 
   const totalQuestions = questions.length;
+
+  const computeScore = useCallback(() => {
+    let correctAnswers = 0;
+    questions.forEach((q) => {
+      if (q.type === 'mcq') {
+        if (selectedAnswers[q.id] === q.correctAnswer) correctAnswers += 1;
+      } else if (q.type === 'cloze') {
+        if ((selectedAnswers[q.id] || '').trim().toLowerCase() === q.answer) correctAnswers += 1;
+      } else if (q.type === 'short') {
+        if (selectedAnswers[q.id] && selectedAnswers[q.id].length > 3) correctAnswers += 1;
+      }
+    });
+    return correctAnswers;
+  }, [questions, selectedAnswers]);
+
+  const handleSubmit = useCallback(async (autoSubmit = false) => {
+    const correctAnswers = computeScore();
+    const score = correctAnswers;
+    const percentage = Math.round((score / totalQuestions) * 100);
+    
+    setIsSubmitted(true);
+    recordQuizResult(correctAnswers, totalQuestions);
+    
+    // Generate AI summary
+    setIsGeneratingSummary(true);
+    try {
+      const summaryPrompt = `You just completed a ${topic} quiz. You got ${score} out of ${totalQuestions} questions correct (${percentage}%). 
+
+Here are the questions and your answers:
+${questions.map((q, idx) => {
+  const userAnswer = selectedAnswers[q.id];
+  const isCorrect = q.type === 'mcq' ? userAnswer === q.correctAnswer : 
+                    q.type === 'cloze' ? (userAnswer || '').trim().toLowerCase() === q.answer :
+                    userAnswer && userAnswer.length > 3;
+  return `${idx + 1}. ${q.question}\n   Your answer: ${q.type === 'mcq' ? (q.options[userAnswer] || 'Not answered') : (userAnswer || 'Not answered')}\n   ${isCorrect ? '✓ Correct' : '✗ Incorrect'}`;
+}).join('\n\n')}
+
+Provide a brief, encouraging summary (2-3 sentences) highlighting strengths and areas to improve. Be motivational and specific.`;
+      
+      const summaryResponse = await chatCompletion(summaryPrompt);
+      const summary = summaryResponse.choices?.[0]?.message?.content || summaryResponse.content || '';
+      setQuizSummary(stripMarkdown(summary));
+      recordAIInteraction();
+    } catch (error) {
+      console.error('Failed to generate summary:', error);
+      setQuizSummary(`Great job completing the quiz! You scored ${score}/${totalQuestions} (${percentage}%). Keep practicing to improve!`);
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  }, [computeScore, totalQuestions, topic, questions, selectedAnswers, recordQuizResult, recordAIInteraction]);
 
   // Timer effect
   useEffect(() => {
     if (!isConfigured || isSubmitted) return;
     if (timeRemaining <= 0) {
-      if (!isSubmitted) {
-        handleSubmit(true);
-      }
+      handleSubmit(true);
       return;
     }
 
@@ -84,7 +137,7 @@ export const QuizView = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeRemaining, isSubmitted, isConfigured]);
+  }, [timeRemaining, isSubmitted, isConfigured, handleSubmit]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -101,14 +154,15 @@ export const QuizView = () => {
     setTimeRemaining(25 * 60);
 
     try {
-      const prompt = `Create ${questionCount} multiple-choice chemistry quiz questions about ${topic}. Format each question exactly like:
+      const prompt = `Create ${questionCount} multiple-choice quiz questions about ${topic}. Format each question exactly like:
 1. [Question]
 A) Option
 B) Option
 C) Option
 D) Option
 Correct: [Letter]
-`;
+
+Make sure all questions are specifically about ${topic} and not about other subjects.`;
       const raw = await generateQuizQuestions(prompt, questionCount);
       const parsed = parseAIQuiz(raw).map((q, idx) => ({
         id: idx + 1,
@@ -135,31 +189,6 @@ Correct: [Letter]
     setSelectedAnswers({ ...selectedAnswers, [questionId]: answer });
   };
 
-  const computeScore = () => {
-    let correctAnswers = 0;
-    questions.forEach((q) => {
-      if (q.type === 'mcq') {
-        if (selectedAnswers[q.id] === q.correctAnswer) correctAnswers += 1;
-      } else if (q.type === 'cloze') {
-        if ((selectedAnswers[q.id] || '').trim().toLowerCase() === q.answer) correctAnswers += 1;
-      } else if (q.type === 'short') {
-        if (selectedAnswers[q.id] && selectedAnswers[q.id].length > 3) correctAnswers += 1;
-      }
-    });
-    return correctAnswers;
-  };
-
-  const handleSubmit = (autoSubmit = false) => {
-    const correctAnswers = computeScore();
-    setIsSubmitted(true);
-    recordQuizResult(correctAnswers, totalQuestions);
-    if (autoSubmit) {
-      alert(`Time's up! Score: ${correctAnswers}/${totalQuestions}`);
-    } else {
-      alert(`Quiz submitted! Score: ${correctAnswers}/${totalQuestions}`);
-    }
-  };
-
   const resetQuiz = () => {
     setIsConfigured(false);
     setIsSubmitted(false);
@@ -167,32 +196,218 @@ Correct: [Letter]
     setCurrentQuestion(1);
     setTimeRemaining(25 * 60);
     setQuestions(fallbackQuestions);
+    setQuizSummary('');
+    setIsGeneratingSummary(false);
   };
+  
+  const score = computeScore();
+  const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
 
   const currentQ = questions[currentQuestion - 1] || questions[0];
+  
+  // Results screen
+  if (isSubmitted) {
+    const getScoreColor = () => {
+      if (percentage >= 80) return 'text-green-500';
+      if (percentage >= 60) return 'text-yellow-500';
+      return 'text-red-500';
+    };
+    
+    const getScoreMessage = () => {
+      if (percentage >= 90) return 'Outstanding!';
+      if (percentage >= 80) return 'Great job!';
+      if (percentage >= 70) return 'Good work!';
+      if (percentage >= 60) return 'Not bad!';
+      return 'Keep practicing!';
+    };
+
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-6 bg-gradient-to-br from-background via-background to-primary/5">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-3xl space-y-6"
+        >
+          {/* Score Card */}
+          <Card className="border-2 shadow-xl">
+            <CardHeader className="text-center space-y-4 pb-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: 'spring' }}
+                className="mx-auto w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center"
+              >
+                <Trophy className="h-12 w-12 text-primary" />
+              </motion.div>
+              <CardTitle className="text-4xl">{getScoreMessage()}</CardTitle>
+              <div className="space-y-2">
+                <div className={`text-6xl font-bold ${getScoreColor()}`}>
+                  {percentage}%
+                </div>
+                <CardDescription className="text-lg">
+                  {score} out of {totalQuestions} questions correct
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Progress Circle */}
+              <div className="flex justify-center">
+                <div className="relative w-48 h-48">
+                  <svg className="transform -rotate-90 w-48 h-48">
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="88"
+                      stroke="currentColor"
+                      strokeWidth="12"
+                      fill="transparent"
+                      className="text-secondary"
+                    />
+                    <motion.circle
+                      cx="96"
+                      cy="96"
+                      r="88"
+                      stroke="currentColor"
+                      strokeWidth="12"
+                      fill="transparent"
+                      strokeDasharray={`${2 * Math.PI * 88}`}
+                      strokeDashoffset={`${2 * Math.PI * 88 * (1 - percentage / 100)}`}
+                      strokeLinecap="round"
+                      className={getScoreColor()}
+                      initial={{ strokeDashoffset: 2 * Math.PI * 88 }}
+                      animate={{ strokeDashoffset: 2 * Math.PI * 88 * (1 - percentage / 100) }}
+                      transition={{ duration: 1.5, ease: 'easeOut' }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className={`text-3xl font-bold ${getScoreColor()}`}>
+                        {percentage}%
+                      </div>
+                      <div className="text-sm text-muted-foreground">Score</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* AI Summary */}
+              <Card className="bg-gradient-to-r from-primary/10 to-transparent">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    <CardTitle>AI Summary</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isGeneratingSummary ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Generating personalized summary...</span>
+                    </div>
+                  ) : (
+                    <p className="text-base leading-relaxed">{quizSummary || 'Analyzing your results...'}</p>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {/* Question Breakdown */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">Question Breakdown</h3>
+                <div className="space-y-2">
+                  {questions.map((q, idx) => {
+                    const userAnswer = selectedAnswers[q.id];
+                    const isCorrect = q.type === 'mcq' ? userAnswer === q.correctAnswer : 
+                                      q.type === 'cloze' ? (userAnswer || '').trim().toLowerCase() === q.answer :
+                                      userAnswer && userAnswer.length > 3;
+                    return (
+                      <div
+                        key={q.id}
+                        className={`p-3 rounded-lg border ${
+                          isCorrect ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`text-lg ${isCorrect ? 'text-green-500' : 'text-red-500'}`}>
+                            {isCorrect ? '✓' : '✗'}
+                          </span>
+                          <div className="flex-1">
+                            <p className="font-medium">{q.question}</p>
+                            {q.type === 'mcq' && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Your answer: {q.options[userAnswer] || 'Not answered'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={resetQuiz}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  New Quiz
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsSubmitted(false);
+                    setCurrentQuestion(1);
+                  }}
+                  className="flex-1"
+                >
+                  Review Answers
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (!isConfigured) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-64px)] p-6">
-        <Card className="w-full max-w-lg">
-          <CardHeader>
-            <CardTitle>Create a Quiz</CardTitle>
-            <CardDescription>Tell us what you want to study and we’ll build the quiz for you.</CardDescription>
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-6 bg-gradient-to-br from-background via-background to-primary/5">
+        <Card className="w-full max-w-2xl border-2 shadow-xl">
+          <CardHeader className="text-center space-y-2 pb-6">
+            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <CheckSquare className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-3xl">Create Your Quiz</CardTitle>
+            <CardDescription className="text-base">
+              Tell us what you want to study and we'll build a personalized quiz for you
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4" onSubmit={configureQuiz}>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground" htmlFor="topic">Quiz topic</label>
+            <form className="space-y-6" onSubmit={configureQuiz}>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground" htmlFor="topic">
+                  Quiz Topic
+                </label>
                 <Input
                   id="topic"
-                  placeholder="e.g. Chemical kinetics, stoichiometry, etc."
+                  placeholder="e.g. Algebra, Calculus, Geometry, Trigonometry..."
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   required
+                  className="h-12 text-base"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Be specific for better questions
+                </p>
               </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground" htmlFor="questionCount">Number of questions</label>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground" htmlFor="questionCount">
+                  Number of Questions
+                </label>
                 <Input
                   id="questionCount"
                   type="number"
@@ -200,10 +415,29 @@ Correct: [Letter]
                   max={15}
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="h-12 text-base"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Recommended: 5-10 questions for a focused session
+                </p>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : 'Generate Quiz'}
+              <Button 
+                type="submit" 
+                className="w-full h-12 text-base font-semibold" 
+                disabled={loading}
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" /> 
+                    Generating Quiz...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5 mr-2" />
+                    Generate Quiz
+                  </>
+                )}
               </Button>
             </form>
           </CardContent>

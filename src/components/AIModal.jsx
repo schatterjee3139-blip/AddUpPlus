@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { Textarea } from './ui/Textarea';
 import { chatCompletion } from '../lib/api';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
+import { stripMarkdown } from '../lib/utils';
 
 export const AIModal = ({ isOpen, onClose, title = 'AI Assistant', initialPrompt = '', onResult }) => {
   const [prompt, setPrompt] = useState(initialPrompt);
@@ -31,11 +32,12 @@ export const AIModal = ({ isOpen, onClose, title = 'AI Assistant', initialPrompt
     try {
       const result = await chatCompletion(prompt);
       const aiResponse = result.choices?.[0]?.message?.content || result.content || 'No response received.';
-      setResponse(aiResponse);
+      const cleanedResponse = stripMarkdown(aiResponse);
+      setResponse(cleanedResponse);
       recordAIInteraction();
       
       if (onResult) {
-        onResult(aiResponse);
+        onResult(cleanedResponse);
       }
     } catch (err) {
       console.error('AI error:', err);

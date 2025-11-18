@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Layers,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -16,6 +17,8 @@ import { AIModal } from '../components/AIModal';
 import { Textarea } from '../components/ui/Textarea';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
 import { chatCompletion } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { subscribeToUserData, updateFlashcardsData, initializeUserData } from '../lib/firestore';
 
 const FlashcardFlip = ({ front, back, isFlipped, onFlip, onExplain }) => {
   return (
@@ -65,8 +68,20 @@ const FlashcardFlip = ({ front, back, isFlipped, onFlip, onExplain }) => {
 };
 
 export const FlashcardView = () => {
+  const { currentUser } = useAuth();
   const [view, setView] = useState('overview'); // 'overview' or 'study'
-  const [deck, setDeck] = useState([]);
+  const [deck, setDeck] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    if (!currentUser) {
+      try {
+        const stored = window.localStorage.getItem('flashcardDeck');
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,6 +95,103 @@ export const FlashcardView = () => {
   const [generationError, setGenerationError] = useState('');
   const [generationStatus, setGenerationStatus] = useState('');
   const { recordFlashcardReview, recordAIInteraction } = useStudyMetrics();
+
+  const isInitialLoadRef = useRef(true);
+  const lastSaveTimeRef = useRef(0);
+  const isUpdatingRef = useRef(false);
+
+  // Load flashcards from Firebase
+  useEffect(() => {
+    if (!currentUser) {
+      try {
+        const stored = window.localStorage.getItem('flashcardDeck');
+        if (stored) {
+          setDeck(JSON.parse(stored));
+        }
+      } catch {
+        // Ignore
+      }
+      return;
+    }
+
+    const initializeAndSubscribe = async () => {
+      try {
+        await initializeUserData(currentUser.uid, {
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+        });
+
+        const unsubscribe = subscribeToUserData(currentUser.uid, (userData) => {
+          if (userData && userData.flashcards) {
+            const loadedDeck = userData.flashcards.deck || [];
+            // Only update if this is initial load or if we haven't saved recently
+            if (isInitialLoadRef.current) {
+              setDeck(loadedDeck);
+              isInitialLoadRef.current = false;
+            } else {
+              const timeSinceLastSave = Date.now() - lastSaveTimeRef.current;
+              if (!isUpdatingRef.current && timeSinceLastSave > 2000) {
+                setDeck(loadedDeck);
+              }
+            }
+          }
+        });
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error loading flashcards:', error);
+        return () => {};
+      }
+    };
+
+    let unsubscribe;
+    initializeAndSubscribe().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      isInitialLoadRef.current = true;
+    };
+  }, [currentUser]);
+
+  // Save flashcards to Firebase or localStorage (debounced)
+  useEffect(() => {
+    // Skip if initial load
+    if (isInitialLoadRef.current && currentUser) {
+      return;
+    }
+
+    // Skip if deck is empty and we're just initializing
+    if (deck.length === 0 && isInitialLoadRef.current) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (currentUser) {
+        isUpdatingRef.current = true;
+        lastSaveTimeRef.current = Date.now();
+        updateFlashcardsData(currentUser.uid, { deck })
+          .then(() => {
+            setTimeout(() => {
+              isUpdatingRef.current = false;
+            }, 1000);
+          })
+          .catch((error) => {
+            console.error('Failed to save flashcards:', error);
+            isUpdatingRef.current = false;
+          });
+      } else {
+        try {
+          window.localStorage.setItem('flashcardDeck', JSON.stringify(deck));
+        } catch (error) {
+          console.warn('Failed to persist flashcards', error);
+        }
+      }
+    }, 500); // Debounce by 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [deck, currentUser]);
 
   const currentCard = deck[currentCardIndex];
   const progress = deck.length ? ((currentCardIndex + 1) / deck.length) * 100 : 0;
@@ -363,60 +475,107 @@ export const FlashcardView = () => {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-6 bg-gradient-to-br from-background via-background to-primary/5 min-h-[calc(100vh-64px)]">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Flashcard Decks</h2>
-        <Button onClick={() => setView('study')} disabled={!deck.length}>
-            <Play className="h-4 w-4 mr-2" /> Start Studying
+        <div>
+          <h2 className="text-3xl font-bold">Flashcard Decks</h2>
+          <p className="text-muted-foreground mt-1">
+            Create and study flashcards from your notes
+          </p>
+        </div>
+        <Button 
+          onClick={() => setView('study')} 
+          disabled={!deck.length}
+          size="lg"
+          className="h-12"
+        >
+          <Play className="h-5 w-5 mr-2" /> Start Studying
         </Button>
       </div>
       
       {/* Deck Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Flashcards</CardTitle>
-          <CardDescription>
-            {deck.length
-              ? `${deck.length} cards ready to study.`
-              : 'No cards yet. Paste your notes below to generate flashcards.'}
-          </CardDescription>
+      <Card className="border-2 shadow-lg">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Layers className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">Your Flashcards</CardTitle>
+              <CardDescription className="text-base">
+                {deck.length
+                  ? `${deck.length} cards ready to study`
+                  : 'No cards yet. Generate flashcards from your notes below.'}
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <Input 
-              placeholder="Search cards..." 
-              className="max-w-xs"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Generate Cards From Notes</h3>
-              <span className="text-xs text-muted-foreground">Paste any notes, bullet points, or lecture transcript.</span>
+          {deck.length > 0 && (
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <Input 
+                id="flashcard-search"
+                name="flashcard-search"
+                placeholder="Search cards..." 
+                className="max-w-xs h-11"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-            <Textarea
-              placeholder="Paste your notes here..."
-              value={notesInput}
-              onChange={(e) => setNotesInput(e.target.value)}
-            />
-            {notesError && <p className="text-sm text-destructive">{notesError}</p>}
-            {generationError && <p className="text-sm text-destructive">{generationError}</p>}
-            {generationStatus && <p className="text-sm text-emerald-600 dark:text-emerald-400">{generationStatus}</p>}
-            <div className="flex justify-end">
-              <Button onClick={handleGenerateFromNotes} disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" /> Generate Flashcards
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          )}
+          
+          <Card className="bg-gradient-to-r from-primary/5 to-transparent border-primary/20">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <CardTitle>Generate Cards From Notes</CardTitle>
+              </div>
+              <CardDescription>
+                Paste any notes, bullet points, or lecture transcript to automatically create flashcards
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                placeholder="Paste your notes here... (e.g., lecture notes, textbook summaries, study guides)"
+                value={notesInput}
+                onChange={(e) => setNotesInput(e.target.value)}
+                className="min-h-[120px] text-base"
+              />
+              {notesError && (
+                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                  {notesError}
+                </div>
+              )}
+              {generationError && (
+                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                  {generationError}
+                </div>
+              )}
+              {generationStatus && (
+                <div className="p-3 rounded-md bg-green-500/10 border border-green-500/20 text-sm text-green-600 dark:text-green-400">
+                  {generationStatus}
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleGenerateFromNotes} 
+                  disabled={isGenerating || !notesInput.trim()}
+                  size="lg"
+                  className="h-11"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-5 w-5 mr-2" /> Generate Flashcards
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredDeck.length > 0 ? (
               filteredDeck.map((card) => (

@@ -1,5 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { chatCompletion } from '../lib/api';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react';
+import { chatCompletion, searchYouTubeVideos } from '../lib/api';
+import { stripMarkdown } from '../lib/utils';
+import { useAuth } from './AuthContext';
+import { subscribeToUserData, updateCourseData, initializeUserData } from '../lib/firestore';
 
 export const COURSE_CATALOG = [
   {
@@ -167,46 +170,201 @@ export const COURSE_CATALOG = [
 const CourseCatalogContext = createContext(null);
 
 export const CourseCatalogProvider = ({ children }) => {
+  const { currentUser } = useAuth();
   const [blueprintStatus, setBlueprintStatus] = useState({});
+  
+  // Initialize from localStorage if not logged in, otherwise from Firebase
   const [joinedCourseIds, setJoinedCourseIds] = useState(() => {
     if (typeof window === 'undefined') return [];
-    try {
-      const stored = window.localStorage.getItem('joinedCourseIds');
-      return stored ? JSON.parse(stored) : [];
-    } catch (error) {
-      console.warn('Failed to load joined courses from storage', error);
-      return [];
+    if (!currentUser) {
+      try {
+        const stored = window.localStorage.getItem('joinedCourseIds');
+        return stored ? JSON.parse(stored) : [];
+      } catch (error) {
+        console.warn('Failed to load joined courses from storage', error);
+        return [];
+      }
     }
+    return [];
   });
 
   const [courseBlueprints, setCourseBlueprints] = useState(() => {
     if (typeof window === 'undefined') return {};
-    try {
-      const stored = window.localStorage.getItem('workspaceCourseBlueprints');
-      if (!stored) return {};
-      const parsed = JSON.parse(stored);
-      return typeof parsed === 'object' && parsed !== null ? parsed : {};
-    } catch (error) {
-      console.warn('Failed to load course blueprints from storage', error);
-      return {};
+    if (!currentUser) {
+      try {
+        const stored = window.localStorage.getItem('workspaceCourseBlueprints');
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+      } catch (error) {
+        console.warn('Failed to load course blueprints from storage', error);
+        return {};
+      }
     }
+    return {};
   });
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('joinedCourseIds', JSON.stringify(joinedCourseIds));
-    } catch (error) {
-      console.warn('Failed to persist joined courses', error);
+  const [courseWorkspaceData, setCourseWorkspaceData] = useState(() => {
+    if (typeof window === 'undefined') return {};
+    if (!currentUser) {
+      try {
+        const stored = window.localStorage.getItem('workspaceCourseData');
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+      } catch (error) {
+        console.warn('Failed to load course workspace data from storage', error);
+        return {};
+      }
     }
-  }, [joinedCourseIds]);
+    return {};
+  });
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('workspaceCourseBlueprints', JSON.stringify(courseBlueprints));
-    } catch (error) {
-      console.warn('Failed to persist generated course blueprints', error);
+  const [courseYouTubeVideos, setCourseYouTubeVideos] = useState(() => {
+    if (typeof window === 'undefined') return {};
+    if (!currentUser) {
+      try {
+        const stored = window.localStorage.getItem('workspaceYouTubeVideos');
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+      } catch (error) {
+        console.warn('Failed to load YouTube videos from storage', error);
+        return {};
+      }
     }
-  }, [courseBlueprints]);
+    return {};
+  });
+
+  // Initialize and subscribe to Firebase when user logs in
+  useEffect(() => {
+    // Guest users always start with empty data
+    if (currentUser?.isGuest) {
+      setJoinedCourseIds([]);
+      setCourseBlueprints({});
+      setCourseWorkspaceData({});
+      setCourseYouTubeVideos({});
+      return;
+    }
+
+    if (!currentUser) {
+      // For non-logged-in users, start fresh (no localStorage)
+      setJoinedCourseIds([]);
+      setCourseBlueprints({});
+      setCourseWorkspaceData({});
+      setCourseYouTubeVideos({});
+      return;
+    }
+
+    const initializeAndSubscribe = async () => {
+      try {
+        // Initialize user data if needed
+        await initializeUserData(currentUser.uid, {
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+        });
+        console.log('User data initialized for:', currentUser.uid);
+
+        // Subscribe to real-time updates
+        const unsubscribe = subscribeToUserData(currentUser.uid, (userData) => {
+          if (userData) {
+            console.log('Received user data from Firebase:', userData);
+            if (userData.courses) {
+              // Only update if this is initial load or if we haven't saved recently
+              if (isInitialLoadRef.current) {
+                setJoinedCourseIds(userData.courses.joinedCourseIds || []);
+                setCourseBlueprints(userData.courses.courseBlueprints || {});
+                setCourseWorkspaceData(userData.courses.courseWorkspaceData || {});
+                setCourseYouTubeVideos(userData.courses.courseYouTubeVideos || {});
+                isInitialLoadRef.current = false;
+              } else {
+                const timeSinceLastSave = Date.now() - lastSaveTimeRef.current;
+                if (!isUpdatingRef.current && timeSinceLastSave > 2000) {
+                  setJoinedCourseIds(userData.courses.joinedCourseIds || []);
+                  setCourseBlueprints(userData.courses.courseBlueprints || {});
+                  setCourseWorkspaceData(userData.courses.courseWorkspaceData || {});
+                  setCourseYouTubeVideos(userData.courses.courseYouTubeVideos || {});
+                }
+              }
+            }
+          }
+        });
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error initializing user data:', error);
+        return () => {};
+      }
+    };
+
+    let unsubscribe;
+    initializeAndSubscribe().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser]);
+
+  const isInitialLoadRef = useRef(true);
+  const lastSaveTimeRef = useRef(0);
+  const isUpdatingRef = useRef(false);
+
+  // Update initial load flag when user changes
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+  }, [currentUser]);
+
+  // Persist to Firebase or localStorage - consolidated into one effect (debounced)
+  useEffect(() => {
+    // Guest users don't persist data
+    if (currentUser?.isGuest) {
+      return;
+    }
+
+    // Skip if initial load
+    if (isInitialLoadRef.current && currentUser) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (currentUser) {
+        isUpdatingRef.current = true;
+        lastSaveTimeRef.current = Date.now();
+        // Update Firebase with all course data
+        updateCourseData(currentUser.uid, {
+          joinedCourseIds,
+          courseBlueprints,
+          courseWorkspaceData,
+          courseYouTubeVideos,
+        })
+          .then(() => {
+            setTimeout(() => {
+              isUpdatingRef.current = false;
+            }, 1000);
+          })
+          .catch((error) => {
+            console.error('Failed to update course data in Firebase:', error);
+            isUpdatingRef.current = false;
+          });
+      } else {
+        // Fallback to localStorage (only for non-guest users)
+        if (!currentUser?.isGuest) {
+          try {
+            window.localStorage.setItem('joinedCourseIds', JSON.stringify(joinedCourseIds));
+            window.localStorage.setItem('workspaceCourseBlueprints', JSON.stringify(courseBlueprints));
+            window.localStorage.setItem('workspaceCourseData', JSON.stringify(courseWorkspaceData));
+            window.localStorage.setItem('workspaceYouTubeVideos', JSON.stringify(courseYouTubeVideos));
+          } catch (error) {
+            console.warn('Failed to persist course data to localStorage', error);
+          }
+        }
+      }
+    }, 500); // Debounce by 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [joinedCourseIds, courseBlueprints, courseWorkspaceData, courseYouTubeVideos, currentUser]);
 
   useEffect(() => {
     setBlueprintStatus((prev) => {
@@ -229,6 +387,167 @@ export const CourseCatalogProvider = ({ children }) => {
   const joinedCourses = useMemo(
     () => joinedCourseIds.map((id) => courseLookup.get(id)).filter(Boolean),
     [joinedCourseIds, courseLookup]
+  );
+
+  const generateCourseWorkspaceData = useCallback(
+    async (courseId) => {
+      if (!courseId) return null;
+      if (courseWorkspaceData[courseId]) return courseWorkspaceData[courseId];
+
+      const course = courseLookup.get(courseId);
+      if (!course) {
+        console.warn('Attempted to generate workspace data for unknown course id', courseId);
+        return null;
+      }
+
+      setBlueprintStatus((prev) => ({ ...prev, [courseId]: 'loading' }));
+
+      const prompt = `
+You are an expert instructional designer creating personalized workspace content for the following mathematics course:
+Course Name: ${course.name}
+Course Summary: ${course.summary}
+Primary Focus: ${course.focus}
+Default View: ${course.defaultView}
+
+Generate a JSON object with exactly this structure:
+{
+  "topics": ["topic 1", "topic 2", "topic 3"],
+  "toolkit": ["toolkit tip 1", "toolkit tip 2"],
+  "practice": ["practice routine 1", "practice routine 2"]
+}
+
+Requirements:
+- "topics": Provide exactly 3 core concepts or topics to master for this course. Be specific and relevant to the course content.
+- "toolkit": Provide exactly 2 practical tips for using the ${course.defaultView} workspace effectively with this course. Make them actionable and specific.
+- "practice": Provide exactly 2 weekly routine suggestions tailored to this course. Make them specific with time commitments and focus areas.
+
+Return ONLY valid JSON, no markdown, no explanations, just the JSON object.`;
+
+      try {
+        const response = await chatCompletion(prompt);
+        const content =
+          response?.choices?.[0]?.message?.content ||
+          response?.content ||
+          '';
+
+        // Try to parse JSON from the response
+        let parsed;
+        try {
+          // Remove markdown code blocks if present
+          const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          parsed = JSON.parse(cleaned);
+        } catch (parseError) {
+          console.warn('Failed to parse AI response as JSON, using fallback', parseError);
+          // Fallback structure
+          parsed = {
+            topics: [
+              'Key definitions and terminology',
+              'Core techniques and representative problems',
+              'Applications and extensions to explore next',
+            ],
+            toolkit: [
+              `Use the ${course.defaultView} workspace to build your understanding systematically.`,
+              'Leverage AI suggestions to discover prerequisite concepts and advanced extensions.',
+            ],
+            practice: [
+              'Set a 25-minute focused study block daily.',
+              'Review mistakes and summarize insights after each practice session.',
+            ],
+          };
+        }
+
+        // Ensure all required fields exist and strip markdown
+        const workspaceData = {
+          topics: Array.isArray(parsed.topics) && parsed.topics.length > 0 
+            ? parsed.topics.slice(0, 3).map(t => stripMarkdown(t))
+            : ['Key definitions and terminology', 'Core techniques and representative problems', 'Applications and extensions to explore next'],
+          toolkit: Array.isArray(parsed.toolkit) && parsed.toolkit.length > 0 
+            ? parsed.toolkit.slice(0, 2).map(t => stripMarkdown(t))
+            : [`Use the ${course.defaultView} workspace effectively.`, 'Leverage AI suggestions for deeper learning.'],
+          practice: Array.isArray(parsed.practice) && parsed.practice.length > 0 
+            ? parsed.practice.slice(0, 2).map(p => stripMarkdown(p))
+            : ['Set a 25-minute focused study block daily.', 'Review mistakes and summarize insights after each practice session.'],
+        };
+
+        setCourseWorkspaceData((prev) => ({
+          ...prev,
+          [courseId]: workspaceData,
+        }));
+
+        // Update status - workspace data is ready, but blueprint might still be loading
+        // The UI will handle showing workspace data even if blueprint is still loading
+        setBlueprintStatus((prev) => {
+          // Only update if still in loading state - blueprint generation will set it to ready/error separately
+          if (prev[courseId] === 'loading') {
+            // Keep as loading if blueprint isn't ready yet, but workspace data is
+            // The WorkspaceView will show workspace data even if status is still loading
+            return prev;
+          }
+          return prev;
+        });
+
+        return workspaceData;
+      } catch (error) {
+        console.error(`Failed to generate workspace data for ${courseId}`, error);
+        // Set fallback data
+        const fallbackData = {
+          topics: [
+            'Key definitions and terminology',
+            'Core techniques and representative problems',
+            'Applications and extensions to explore next',
+          ],
+          toolkit: [
+            `Use the ${course.defaultView} workspace effectively.`,
+            'Leverage AI suggestions for deeper learning.',
+          ],
+          practice: [
+            'Set a 25-minute focused study block daily.',
+            'Review mistakes and summarize insights after each practice session.',
+          ],
+        };
+        setCourseWorkspaceData((prev) => ({
+          ...prev,
+          [courseId]: fallbackData,
+        }));
+        throw error;
+      }
+    },
+    [courseWorkspaceData, courseLookup]
+  );
+
+  const generateCourseYouTubeVideos = useCallback(
+    async (courseId) => {
+      if (!courseId) return null;
+      if (courseYouTubeVideos[courseId]) return courseYouTubeVideos[courseId];
+
+      const course = courseLookup.get(courseId);
+      if (!course) {
+        console.warn('Attempted to generate YouTube videos for unknown course id', courseId);
+        return null;
+      }
+
+      try {
+        // Create search query based on course name and key topics
+        const searchQuery = `${course.name} tutorial lessons`;
+        const videos = await searchYouTubeVideos(searchQuery, 6);
+
+        setCourseYouTubeVideos((prev) => ({
+          ...prev,
+          [courseId]: videos,
+        }));
+
+        return videos;
+      } catch (error) {
+        console.error(`Failed to fetch YouTube videos for ${courseId}`, error);
+        // Set empty array on error
+        setCourseYouTubeVideos((prev) => ({
+          ...prev,
+          [courseId]: [],
+        }));
+        return [];
+      }
+    },
+    [courseYouTubeVideos, courseLookup]
   );
 
   const generateCourseBlueprint = useCallback(
@@ -270,10 +589,11 @@ Keep the tone motivating yet rigorous and assume the learner is aiming for compe
           response?.choices?.[0]?.message?.content ||
           response?.content ||
           'AI was unable to generate content. Please try again.';
+        const cleanedContent = stripMarkdown(content);
 
         setCourseBlueprints((prev) => ({
           ...prev,
-          [courseId]: content,
+          [courseId]: cleanedContent,
         }));
         setBlueprintStatus((prev) => ({ ...prev, [courseId]: 'ready' }));
 
@@ -294,13 +614,24 @@ Keep the tone motivating yet rigorous and assume the learner is aiming for compe
         return [...prev, courseId];
       });
 
+      // Generate workspace data, blueprint, and YouTube videos
+      if (!courseWorkspaceData[courseId]) {
+        generateCourseWorkspaceData(courseId).catch(() => {
+          /* handled via status */
+        });
+      }
       if (!courseBlueprints[courseId]) {
         generateCourseBlueprint(courseId).catch(() => {
           /* handled via status */
         });
       }
+      if (!courseYouTubeVideos[courseId]) {
+        generateCourseYouTubeVideos(courseId).catch(() => {
+          /* handled silently */
+        });
+      }
     },
-    [courseBlueprints, generateCourseBlueprint]
+    [courseBlueprints, courseWorkspaceData, courseYouTubeVideos, generateCourseBlueprint, generateCourseWorkspaceData, generateCourseYouTubeVideos]
   );
 
   const leaveCourse = useCallback((courseId) => {
@@ -322,6 +653,10 @@ Keep the tone motivating yet rigorous and assume the learner is aiming for compe
       courseBlueprints,
       blueprintStatus,
       generateCourseBlueprint,
+      courseWorkspaceData,
+      generateCourseWorkspaceData,
+      courseYouTubeVideos,
+      generateCourseYouTubeVideos,
     }),
     [
       courseLookup,
@@ -332,6 +667,10 @@ Keep the tone motivating yet rigorous and assume the learner is aiming for compe
       courseBlueprints,
       blueprintStatus,
       generateCourseBlueprint,
+      courseWorkspaceData,
+      generateCourseWorkspaceData,
+      courseYouTubeVideos,
+      generateCourseYouTubeVideos,
     ]
   );
 

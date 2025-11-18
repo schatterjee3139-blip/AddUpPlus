@@ -25,6 +25,7 @@ export const getNvidiaApiKey = () => {
 export const nvidiaApiRequest = async (endpoint, options = {}) => {
   const apiKey = getNvidiaApiKey();
   if (!apiKey) {
+    console.error('❌ NVIDIA API key is not configured. Please set VITE_NVIDIA_API_KEY in your .env file');
     throw new Error('NVIDIA API key is not configured');
   }
 
@@ -44,11 +45,18 @@ export const nvidiaApiRequest = async (endpoint, options = {}) => {
   }
 
   try {
-    const response = await fetch(`${NVIDIA_API_BASE}${endpoint}`, {
+    const fetchOptions = {
       method: options.method || 'POST',
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+    };
+
+    // Add signal if provided (for timeout)
+    if (options.signal) {
+      fetchOptions.signal = options.signal;
+    }
+
+    const response = await fetch(`${NVIDIA_API_BASE}${endpoint}`, fetchOptions);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -61,14 +69,37 @@ export const nvidiaApiRequest = async (endpoint, options = {}) => {
         errorMessage = errorText || errorMessage;
       }
       
+      console.error('NVIDIA API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        message: errorMessage,
+        endpoint,
+      });
+      
       throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const data = await response.json();
+    
+    // Log response structure for debugging (only in development)
+    if (import.meta.env.DEV) {
+      console.log('NVIDIA API Response:', {
+        hasChoices: !!data.choices,
+        choicesLength: data.choices?.length,
+        hasContent: !!data.content,
+        responseKeys: Object.keys(data),
+      });
+    }
+    
+    return data;
   } catch (error) {
     // Handle network errors (CORS, connectivity, etc.)
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error('Network error: Unable to reach NVIDIA API. This might be a CORS issue. Please check your API key and network connection.');
+    }
+    // Don't re-throw AbortError here, let it be handled by the caller
+    if (error.name === 'AbortError') {
+      throw error;
     }
     throw error;
   }
@@ -76,31 +107,115 @@ export const nvidiaApiRequest = async (endpoint, options = {}) => {
 
 /**
  * Chat completion using NVIDIA API
- * @param {string} message - User message
+ * @param {string|Array} messages - Single user message string OR array of message objects with role and content
  * @param {string} model - Model to use (default: 'meta/llama-3.1-8b-instruct')
+ * @param {object} options - Additional options (max_tokens, temperature, etc.)
  */
-export const chatCompletion = async (message, model = 'meta/llama-3.1-8b-instruct') => {
+export const chatCompletion = async (messages, model = 'meta/llama-3.1-8b-instruct', options = {}) => {
   try {
-    const response = await nvidiaApiRequest('/chat/completions', {
-      method: 'POST',
-      body: {
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: message,
-          },
-        ],
-        temperature: 0.7,
-        top_p: 0.9,
-        max_tokens: 1024,
-        stream: false,
-      },
-    });
+    // If messages is a string, convert it to array format
+    const messageArray = typeof messages === 'string' 
+      ? [{ role: 'user', content: messages }]
+      : messages;
 
-    return response;
+    // Validate message format
+    if (!Array.isArray(messageArray) || messageArray.length === 0) {
+      throw new Error('Messages must be a non-empty array or string');
+    }
+
+    // Calculate max_tokens based on conversation length (more tokens for longer conversations)
+    const conversationLength = messageArray.reduce((sum, msg) => sum + (msg.content?.length || 0), 0);
+    const defaultMaxTokens = conversationLength > 1000 ? 2048 : 1024;
+    const maxTokens = options.max_tokens || defaultMaxTokens;
+
+    const requestBody = {
+      model,
+      messages: messageArray,
+      temperature: options.temperature || 0.7,
+      top_p: options.top_p || 0.9,
+      max_tokens: maxTokens,
+      stream: false,
+    };
+
+    // Add timeout to the fetch request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+    try {
+      const response = await nvidiaApiRequest('/chat/completions', {
+        method: 'POST',
+        body: requestBody,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout: The API took too long to respond. Please try again with a simpler question.');
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Chat completion error:', error);
+    throw error;
+  }
+};
+
+/**
+ * YouTube API configuration
+ */
+const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+
+/**
+ * Get YouTube API key from environment variables
+ */
+export const getYoutubeApiKey = () => {
+  if (!YOUTUBE_API_KEY) {
+    console.warn('YouTube API key not found. Please set VITE_YOUTUBE_API_KEY in your .env file');
+    return null;
+  }
+  return YOUTUBE_API_KEY;
+};
+
+/**
+ * Search for YouTube videos
+ * @param {string} query - Search query
+ * @param {number} maxResults - Maximum number of results (default: 5)
+ */
+export const searchYouTubeVideos = async (query, maxResults = 5) => {
+  const apiKey = getYoutubeApiKey();
+  if (!apiKey) {
+    throw new Error('YouTube API key is not configured');
+  }
+
+  try {
+    const response = await fetch(
+      `${YOUTUBE_API_BASE}/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&key=${apiKey}`
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.error?.message || `YouTube API error: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    
+    return data.items.map((item) => ({
+      id: item.id.videoId,
+      title: item.snippet.title,
+      description: item.snippet.description,
+      thumbnail: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
+      channelTitle: item.snippet.channelTitle,
+      publishedAt: item.snippet.publishedAt,
+      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+    }));
+  } catch (error) {
+    console.error('YouTube search error:', error);
     throw error;
   }
 };

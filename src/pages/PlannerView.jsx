@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { subscribeToUserData, updatePlannerData, initializeUserData } from '../lib/firestore';
 
 const STORAGE_KEY = 'study-os-planner-events';
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -37,31 +39,81 @@ const buildMonthMatrix = (activeDate) => {
   return weeks;
 };
 
-const loadStoredEvents = () => {
+const loadStoredEvents = (currentUser) => {
   if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return typeof parsed === 'object' && parsed !== null ? parsed : {};
-  } catch {
-    return {};
+  if (!currentUser) {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    } catch {
+      return {};
+    }
   }
+  return {};
 };
 
 export const PlannerView = () => {
+  const { currentUser } = useAuth();
   const today = useMemo(() => startOfDay(new Date()), []);
   const [currentMonth, setCurrentMonth] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
-  const [eventsByDate, setEventsByDate] = useState(() => loadStoredEvents());
+  const [eventsByDate, setEventsByDate] = useState(() => loadStoredEvents(currentUser));
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventNotes, setNewEventNotes] = useState('');
   const [newEventTime, setNewEventTime] = useState('');
 
+  // Initialize and subscribe to Firebase when user logs in
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(eventsByDate));
-  }, [eventsByDate]);
+    if (!currentUser) return;
+
+    const initializeAndSubscribe = async () => {
+      // Initialize user data if needed
+      await initializeUserData(currentUser.uid, {
+        email: currentUser.email,
+        displayName: currentUser.displayName,
+      });
+
+      // Subscribe to real-time updates
+      const unsubscribe = subscribeToUserData(currentUser.uid, (userData) => {
+        if (userData && userData.planner) {
+          setEventsByDate(userData.planner.eventsByDate || {});
+        }
+      });
+
+      return unsubscribe;
+    };
+
+    let unsubscribe;
+    initializeAndSubscribe().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser]);
+
+  // Persist to Firebase or localStorage
+  useEffect(() => {
+    if (currentUser) {
+      // Update Firebase
+      updatePlannerData(currentUser.uid, {
+        eventsByDate,
+      }).catch((error) => {
+        console.error('Failed to update planner data in Firebase:', error);
+      });
+    } else {
+      // Fallback to localStorage
+      if (typeof window === 'undefined') return;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(eventsByDate));
+      } catch (error) {
+        console.warn('Failed to persist planner events', error);
+      }
+    }
+  }, [eventsByDate, currentUser]);
 
   const monthMatrix = useMemo(() => buildMonthMatrix(currentMonth), [currentMonth]);
   const monthFormatter = useMemo(
@@ -229,12 +281,16 @@ export const PlannerView = () => {
               </h3>
               <form onSubmit={handleAddEvent} className="space-y-3">
                 <Input
+                  id="event-title"
+                  name="event-title"
                   placeholder="Title (e.g. Calculus homework, study session)"
                   value={newEventTitle}
                   onChange={(event) => setNewEventTitle(event.target.value)}
                 />
                 <div className="flex gap-2">
                   <Input
+                    id="event-time"
+                    name="event-time"
                     type="time"
                     value={newEventTime}
                     onChange={(event) => setNewEventTime(event.target.value)}
