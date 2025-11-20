@@ -289,7 +289,7 @@ const AppContentInner = () => {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-4 text-foreground">
         <Card className="w-full max-w-xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur">
           <CardHeader className="space-y-3 text-center">
-            <CardTitle className="text-3xl font-semibold">Welcome to Study OS</CardTitle>
+            <CardTitle className="text-3xl font-semibold">Welcome to AddUpPlus</CardTitle>
             <CardDescription className="text-base">
               {isLoginMode ? 'Sign in to access your study data' : 'Sign up to personalize your workspace and sync your study tools.'}
             </CardDescription>
