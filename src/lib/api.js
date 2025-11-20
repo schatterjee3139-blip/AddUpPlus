@@ -145,20 +145,17 @@ export const chatCompletionStream = (
   const defaultMaxTokens = conversationLength > 1000 ? 2048 : 1024;
   const maxTokens = options.max_tokens || defaultMaxTokens;
 
-  // Check if we should use /no_think for faster responses
-  const useNoThink = options.useNoThink !== undefined 
+  // Check if we should use optimized parameters for faster responses
+  const useFastMode = options.useNoThink !== undefined 
     ? options.useNoThink 
     : conversationLength < 500 && messageArray.length <= 2;
 
-  // Prepare messages array - add system message with /no_think if needed
-  let finalMessages = [
-    { role: 'system', content: '/no_think' },
-    ...messageArray
-  ];
+  // Prepare messages array - don't add /no_think as it's not a valid NVIDIA API instruction
+  let finalMessages = [...messageArray];
 
-  // Set parameters for faster responses when using no_think
-  const temperature = useNoThink ? 0 : (options.temperature || 0.7);
-  const topP = useNoThink ? 1 : (options.top_p || 0.9);
+  // Set parameters for faster responses
+  const temperature = useFastMode ? 0.3 : (options.temperature || 0.7);
+  const topP = useFastMode ? 0.95 : (options.top_p || 0.9);
   const frequencyPenalty = options.frequency_penalty || 0;
   const presencePenalty = options.presence_penalty || 0;
 
@@ -343,24 +340,18 @@ export const chatCompletion = async (messages, model = 'meta/llama-3.1-8b-instru
     const defaultMaxTokens = conversationLength > 1000 ? 2048 : 1024;
     const maxTokens = options.max_tokens || defaultMaxTokens;
 
-    // Check if we should use /no_think for faster responses
+    // Check if we should use optimized parameters for faster responses
     // Use it for short requests (less than 500 chars) or if explicitly requested
-    const useNoThink = options.useNoThink !== undefined 
+    const useFastMode = options.useNoThink !== undefined 
       ? options.useNoThink 
       : conversationLength < 500 && messageArray.length <= 2;
 
-    // Prepare messages array - add system message with /no_think if needed
+    // Prepare messages array - don't add /no_think as it's not a valid NVIDIA API instruction
     let finalMessages = [...messageArray];
-  
-    // Insert system message at the beginning
-    finalMessages = [
-      { role: 'system', content: '/no_think' },
-      ...messageArray
-    ];
 
-    // Set parameters for faster responses when using no_think
-    const temperature = useNoThink ? 0 : (options.temperature || 0.7);
-    const topP = useNoThink ? 1 : (options.top_p || 0.9);
+    // Set parameters for faster responses
+    const temperature = useFastMode ? 0.3 : (options.temperature || 0.7);
+    const topP = useFastMode ? 0.95 : (options.top_p || 0.9);
     const frequencyPenalty = options.frequency_penalty || 0;
     const presencePenalty = options.presence_penalty || 0;
 
