@@ -1,10 +1,10 @@
 // API configuration for NVIDIA services
 const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY;
-// Use proxy in development to avoid CORS issues, direct API in production
-const USE_PROXY = import.meta.env.DEV;
-const NVIDIA_API_BASE = USE_PROXY 
-  ? '/api/nvidia'  // Use Vite proxy in development
-  : 'https://integrate.api.nvidia.com/v1';  // Direct API in production
+// Use proxy to avoid CORS issues (works in both dev and production via Vercel serverless function)
+// In development: Vite proxy handles it
+// In production: Vercel serverless function at /api/nvidia handles it
+const USE_PROXY = true; // Always use proxy to avoid CORS
+const NVIDIA_API_BASE = '/api/nvidia';
 
 /**
  * Get the NVIDIA API key from environment variables
