@@ -6,7 +6,7 @@ import { Label } from '../components/ui/Label';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/Avatar';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { 
+import {
   Sun, 
   Moon, 
   Laptop, 
@@ -19,12 +19,14 @@ import {
   Bell,
   Download,
   Trash2,
-  Loader2
+  Loader2,
+  Database,
+  ExternalLink
 } from 'lucide-react';
 import { updateProfile } from 'firebase/auth';
 import { auth, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { updateUserData } from '../lib/firestore';
+import { updateUserData, getQuotaUsage } from '../lib/firestore';
 
 export const SettingsView = () => {
   const { theme, setTheme, accentColor, setAccentColor, fontSize, setFontSize, fontFamily, setFontFamily } = useTheme();
@@ -32,7 +34,19 @@ export const SettingsView = () => {
   const [notifications, setNotifications] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [quotaUsage, setQuotaUsage] = useState({ reads: 0, writes: 0, deletes: 0, total: 0 });
   const fileInputRef = useRef(null);
+
+  // Load quota usage
+  useEffect(() => {
+    const updateQuota = () => {
+      const usage = getQuotaUsage();
+      setQuotaUsage(usage);
+    };
+    updateQuota();
+    const interval = setInterval(updateQuota, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   // Load saved preferences
   useEffect(() => {
@@ -390,6 +404,50 @@ export const SettingsView = () => {
           <p className="text-sm text-muted-foreground">
             Download your preferences as a JSON file
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Firebase Quota Usage Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Firebase Usage (Estimated)
+          </CardTitle>
+          <CardDescription>
+            Approximate Firestore operations since page load
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <div className="text-xs text-muted-foreground mb-1">Reads</div>
+              <div className="text-lg font-semibold">{quotaUsage.reads.toLocaleString()}</div>
+            </div>
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <div className="text-xs text-muted-foreground mb-1">Writes</div>
+              <div className="text-lg font-semibold">{quotaUsage.writes.toLocaleString()}</div>
+            </div>
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <div className="text-xs text-muted-foreground mb-1">Total</div>
+              <div className="text-lg font-semibold">{quotaUsage.total.toLocaleString()}</div>
+            </div>
+          </div>
+          <div className="pt-2 border-t">
+            <p className="text-xs text-muted-foreground mb-2">
+              <strong>Note:</strong> This is an estimate based on operations since page load. 
+              For accurate quota usage, check your Firebase Console.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open('https://console.firebase.google.com', '_blank')}
+              className="w-full"
+            >
+              <ExternalLink className="mr-2 h-3 w-3" />
+              Open Firebase Console
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

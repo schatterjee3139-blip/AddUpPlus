@@ -20,10 +20,14 @@ import { NotificationsProvider } from './contexts/NotificationsContext';
 import { WorkspaceView } from './pages/WorkspaceView';
 import { EquationsView } from './pages/EquationsView';
 import { TutorsView } from './pages/TutorsView';
+import { StudyPlanView } from './pages/StudyPlanView';
+import TeacherProfileView from './pages/TeacherProfileView';
+import { VideoCallView } from './pages/VideoCallView';
+import { LoginView } from './pages/LoginView';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/Card';
 import { Input } from './components/ui/Input';
 import { useAuth } from './contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, GraduationCap, User } from 'lucide-react';
 
 const AppContentInner = () => {
   const { currentUser, login, signup, signInWithGoogle, logout, signInAsGuest } = useAuth();
@@ -54,6 +58,7 @@ const AppContentInner = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [userRole, setUserRole] = useState(null); // 'tutor' or 'student'
 
   // Command Palette (⌘K) listener
   useEffect(() => {
@@ -75,7 +80,7 @@ const AppContentInner = () => {
     setIsCommandPaletteOpen(false);
   };
 
-  const handleAuthSubmit = async (event) => {
+  const handleAuthSubmit = async (event, role) => {
     event.preventDefault();
     setAuthError('');
     setAuthLoading(true);
@@ -95,11 +100,23 @@ const AppContentInner = () => {
       setAuthLoading(false);
       return;
     }
+    
+    // Store role if provided
+    if (role) {
+      sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
+      setUserRole(role);
+    }
 
     if (trimmedPassword.length < 6) {
       setAuthError('Password must be at least 6 characters.');
       setAuthLoading(false);
       return;
+    }
+    
+    // Store role if provided
+    if (role) {
+      sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
+      setUserRole(role);
     }
 
     try {
@@ -134,11 +151,16 @@ const AppContentInner = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (role) => {
     setAuthError('');
     setAuthLoading(true);
     try {
       await signInWithGoogle();
+      // Store role in sessionStorage after successful sign-in
+      if (role) {
+        sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
+        setUserRole(role);
+      }
     } catch (error) {
       setAuthError(error.message || 'Google sign-in failed. Please try again.');
     } finally {
@@ -146,11 +168,16 @@ const AppContentInner = () => {
     }
   };
 
-  const handleGuestSignIn = async () => {
+  const handleGuestSignIn = async (role) => {
     setAuthError('');
     setAuthLoading(true);
     try {
       await signInAsGuest();
+      // Store role in sessionStorage after successful sign-in
+      if (role) {
+        sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
+        setUserRole(role);
+      }
     } catch (error) {
       setAuthError(error.message || 'Guest sign-in failed. Please try again.');
     } finally {
@@ -172,6 +199,14 @@ const AppContentInner = () => {
         return ['Home', 'Equations'];
       case 'planner':
         return ['Home', 'Planner'];
+      case 'study-plan':
+        return ['Home', 'Study Plan'];
+      case 'teacher-profiles':
+        return ['Home', 'Teacher Profiles'];
+      case 'video':
+        return ['Home', 'Video Call'];
+      case 'login':
+        return ['Home', 'Login'];
       case 'analytics':
         return ['Home', 'Analytics'];
       case 'courses':
@@ -188,7 +223,10 @@ const AppContentInner = () => {
   };
 
   const renderPage = () => {
-    switch (currentPage) {
+    // Extract base page name (handle query params like "video?tutor=true")
+    const basePage = currentPage?.split('?')[0] || currentPage;
+    
+    switch (basePage) {
       case 'today':
         return <Dashboard onNavigate={setCurrentPage} />;
       case 'notes':
@@ -201,6 +239,14 @@ const AppContentInner = () => {
         return <EquationsView />;
       case 'planner':
         return <PlannerView />;
+      case 'study-plan':
+        return <StudyPlanView />;
+      case 'teacher-profiles':
+        return <TeacherProfileView />;
+      case 'video':
+        return <VideoCallView onNavigate={setCurrentPage} currentPage={currentPage} />;
+      case 'login':
+        return <LoginView onNavigate={setCurrentPage} />;
       case 'tutors':
         return <TutorsView />;
       case 'analytics':
@@ -249,7 +295,48 @@ const AppContentInner = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-6" onSubmit={handleAuthSubmit}>
+            {/* Role Selection */}
+            <div className="mb-6 space-y-3">
+              <label className="text-sm font-medium text-muted-foreground block">
+                Select your role
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setUserRole('tutor')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    userRole === 'tutor'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  disabled={authLoading}
+                >
+                  <GraduationCap className={`h-6 w-6 mx-auto mb-2 ${
+                    userRole === 'tutor' ? 'text-primary' : 'text-muted-foreground'
+                  }`} />
+                  <div className="text-sm font-medium">Tutor</div>
+                  <div className="text-xs text-muted-foreground mt-1">Room owner</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserRole('student')}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    userRole === 'student'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  disabled={authLoading}
+                >
+                  <User className={`h-6 w-6 mx-auto mb-2 ${
+                    userRole === 'student' ? 'text-primary' : 'text-muted-foreground'
+                  }`} />
+                  <div className="text-sm font-medium">Student</div>
+                  <div className="text-xs text-muted-foreground mt-1">Participant</div>
+                </button>
+              </div>
+            </div>
+
+            <form className="space-y-6" onSubmit={(e) => handleAuthSubmit(e, userRole)}>
               {!isLoginMode && (
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -333,43 +420,85 @@ const AppContentInner = () => {
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleGoogleSignIn}
-                disabled={authLoading}
-              >
-                <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                {authLoading ? 'Signing in...' : 'Sign in with Google'}
-              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleGoogleSignIn('tutor')}
+                  disabled={authLoading}
+                >
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  {authLoading ? '...' : 'Tutor'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleGoogleSignIn('student')}
+                  disabled={authLoading}
+                >
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  {authLoading ? '...' : 'Student'}
+                </Button>
+              </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleGuestSignIn}
-                disabled={authLoading}
-              >
-                Continue as Guest
-              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleGuestSignIn('tutor')}
+                  disabled={authLoading}
+                >
+                  <GraduationCap className="mr-2 h-4 w-4" />
+                  Guest (Tutor)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleGuestSignIn('student')}
+                  disabled={authLoading}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  Guest (Student)
+                </Button>
+              </div>
 
               <div className="text-center text-sm text-muted-foreground">
                 <button
@@ -407,12 +536,12 @@ const AppContentInner = () => {
       />
 
       <main 
-        className={`flex-1 min-w-0 transition-all duration-300 ease-in-out xl:mr-0 ${
+        className={`min-w-0 transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'
-        }`}
-        style={{ 
-          marginRight: isXlScreen ? `${rightSidebarWidth}px` : undefined
-        }}
+        } ${isXlScreen ? 'xl:mr-0' : 'flex-1'}`}
+        style={isXlScreen ? { 
+          width: `calc(100% - ${isSidebarCollapsed ? 80 : 240}px - ${rightSidebarWidth}px)`,
+        } : {}}
       >
         <MainHeader 
         breadcrumbs={getBreadcrumbs()} 

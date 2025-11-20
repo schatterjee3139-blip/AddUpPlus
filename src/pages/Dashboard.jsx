@@ -9,14 +9,43 @@ import {
   BookOpen,
   CheckCircle,
   Sparkles,
+  Award,
+  TrendingUp,
+  Star,
+  Video,
+  Calendar,
+  User,
+  GraduationCap,
+  VideoIcon,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/Avatar';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { subscribeToUserData, updateUserData, initializeUserData } from '../lib/firestore';
+
+// Local storage functions for scheduled appointments (no Firebase)
+const SCHEDULED_APPOINTMENTS_KEY = 'scheduledAppointments';
+
+const getScheduledAppointmentsLocal = () => {
+  try {
+    const stored = localStorage.getItem(SCHEDULED_APPOINTMENTS_KEY);
+    const appointments = stored ? JSON.parse(stored) : [];
+    // Filter out past appointments
+    const now = new Date();
+    return appointments.filter(apt => {
+      const aptDate = new Date(apt.scheduledDateTime || apt.scheduledDate);
+      return aptDate >= now;
+    });
+  } catch (error) {
+    console.error('Error loading scheduled appointments:', error);
+    return [];
+  }
+};
+import { BADGES, checkBadges } from '../lib/gamification';
 
 const ProgressRing = ({ percentage, color, label, helper }) => (
   <div className="flex flex-col items-center space-y-2">
@@ -59,6 +88,62 @@ const ProgressRing = ({ percentage, color, label, helper }) => (
 export const Dashboard = ({ onNavigate }) => {
   const { metrics, derived } = useStudyMetrics();
   const { currentUser } = useAuth();
+  const [scheduledAppointments, setScheduledAppointments] = useState([]);
+
+  const handleJoinSession = (appointment) => {
+    // Check if user is a tutor (from login page)
+    const isTutor = sessionStorage.getItem('isTutor') === 'true';
+    
+    // Whereby room URL - students join normally, tutors join as owner
+    const roomUrl = isTutor 
+      ? 'https://whereby.com/fbla-app?embed&owner=true'
+      : 'https://whereby.com/fbla-app?embed';
+    
+    // Store the room URL in sessionStorage so VideoCallView can access it
+    sessionStorage.setItem('wherebyRoomUrl', roomUrl);
+    sessionStorage.setItem('wherebyRoomTutor', JSON.stringify({
+      name: appointment.tutorName,
+      subject: appointment.tutorSubject,
+    }));
+    
+    // Navigate to video call page
+    if (onNavigate) {
+      onNavigate(isTutor ? 'video?tutor=true' : 'video');
+    }
+  };
+  
+  // Load scheduled appointments from localStorage
+  useEffect(() => {
+    const loadAppointments = () => {
+      const appointments = getScheduledAppointmentsLocal();
+      setScheduledAppointments(appointments || []);
+    };
+    
+    loadAppointments();
+    // Refresh appointments every minute to filter out past ones
+    const interval = setInterval(loadAppointments, 60000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Get earned badges
+  const earnedBadges = useMemo(() => {
+    if (!derived.xpProgress) return [];
+    const earnedBadgeIds = new Set(metrics.earnedBadges || []);
+    const allBadges = checkBadges(metrics, derived, {}, derived.xpProgress);
+    return allBadges.filter(badge => earnedBadgeIds.has(badge.id));
+  }, [metrics, derived]);
+  
+  // Listen for badge notifications
+  useEffect(() => {
+    const handleBadgeEarned = (event) => {
+      const newBadges = event.detail;
+      // You could show a toast notification here
+      console.log('New badges earned:', newBadges);
+    };
+    
+    window.addEventListener('badge-earned', handleBadgeEarned);
+    return () => window.removeEventListener('badge-earned', handleBadgeEarned);
+  }, []);
 
   // Get user's first name
   const getUserFirstName = () => {
@@ -92,60 +177,227 @@ export const Dashboard = ({ onNavigate }) => {
 
   return (
     <>
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="p-6 md:p-8 space-y-8">
     {/* Hero Card */}
-    <Card className="bg-gradient-to-r from-primary/10 to-transparent">
-      <CardHeader>
-        <CardTitle as="h1" className="text-3xl">
-          Welcome back, {getUserFirstName()} 👋
+    <Card className="border-0 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent shadow-none">
+      <CardHeader className="pb-3">
+        <CardTitle as="h1" className="text-2xl font-semibold">
+          Welcome back, {getUserFirstName()}
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-sm mt-1">
           You're on a <strong>{metrics.quizzesCompleted || metrics.flashcardsReviewed ? metrics.quizzesCompleted + metrics.flashcardsReviewed : 0}-task streak!</strong> Keep up the great work.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Total Study Time</p>
-                <Clock className="h-5 w-5 text-blue-500" />
+      
+      {/* XP and Level Section */}
+      {derived.xpProgress && (
+        <CardContent className="pt-2">
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-5 border-0">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                  <span className="text-2xl font-bold">Level {derived.xpProgress.level}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {derived.xpProgress.currentXP.toLocaleString()} / {derived.xpProgress.nextLevelXP.toLocaleString()} XP to Level {derived.xpProgress.level + 1}
+                </p>
               </div>
-              <p className="text-2xl font-bold">{(metrics.studyMinutes / 60).toFixed(1)}h</p>
-              <p className="text-xs text-muted-foreground mt-1">{metrics.studyMinutes} minutes</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Flashcards Reviewed</p>
-                <BookOpen className="h-5 w-5 text-green-500" />
+              <div className="text-right">
+                <p className="text-lg font-semibold text-primary">{derived.xpProgress.totalXP.toLocaleString()} XP</p>
+                <p className="text-xs text-muted-foreground">Total Experience</p>
               </div>
-              <p className="text-2xl font-bold">{metrics.flashcardsReviewed}</p>
-              <p className="text-xs text-muted-foreground mt-1">{derived.flashcardAccuracy}% accuracy</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">Quizzes Completed</p>
-                <CheckCircle className="h-5 w-5 text-purple-500" />
+            </div>
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+              <motion.div
+                className="bg-gradient-to-r from-primary to-primary/80 h-full rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${derived.xpProgress.progress}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      )}
+      <CardContent className="pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Study Time</p>
+                <Clock className="h-4 w-4 text-muted-foreground/60" />
               </div>
-              <p className="text-2xl font-bold">{metrics.quizzesCompleted}</p>
-              <p className="text-xs text-muted-foreground mt-1">{derived.averageQuizScore}% average</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground">AI Interactions</p>
-                <Sparkles className="h-5 w-5 text-yellow-500" />
+              <p className="text-2xl font-semibold mb-1">{(metrics.studyMinutes / 60).toFixed(1)}h</p>
+              <p className="text-xs text-muted-foreground">{metrics.studyMinutes} min</p>
+          </div>
+          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Flashcards</p>
+                <BookOpen className="h-4 w-4 text-muted-foreground/60" />
               </div>
-              <p className="text-2xl font-bold">{metrics.aiInteractions}</p>
-              <p className="text-xs text-muted-foreground mt-1">Questions asked</p>
-            </CardContent>
-          </Card>
+              <p className="text-2xl font-semibold mb-1">{metrics.flashcardsReviewed}</p>
+              <p className="text-xs text-muted-foreground">{derived.flashcardAccuracy}% accuracy</p>
+          </div>
+          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quizzes</p>
+                <CheckCircle className="h-4 w-4 text-muted-foreground/60" />
+              </div>
+              <p className="text-2xl font-semibold mb-1">{metrics.quizzesCompleted}</p>
+              <p className="text-xs text-muted-foreground">{derived.averageQuizScore}% average</p>
+          </div>
+          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Interactions</p>
+                <Sparkles className="h-4 w-4 text-muted-foreground/60" />
+              </div>
+              <p className="text-2xl font-semibold mb-1">{metrics.aiInteractions}</p>
+              <p className="text-xs text-muted-foreground">Questions asked</p>
+          </div>
         </div>
+      </CardContent>
+    </Card>
+
+    {/* Video Conferencing Section */}
+    {scheduledAppointments.length > 0 && (
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Video Conferencing</CardTitle>
+          <CardDescription className="text-sm">
+            Your upcoming tutor sessions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {scheduledAppointments.map((appointment) => {
+              const appointmentDate = new Date(appointment.scheduledDateTime || appointment.scheduledDate);
+              const [hours, minutes] = (appointment.scheduledTime || '').split(':').map(Number);
+              if (hours !== undefined && minutes !== undefined) {
+                appointmentDate.setHours(hours, minutes, 0, 0);
+              }
+              
+              const formattedDate = appointmentDate.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              });
+              
+              const formattedTime = appointmentDate.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+              });
+
+              return (
+                <div key={appointment.id} className="p-4 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-start gap-4">
+                      <Avatar className="w-12 h-12 flex-shrink-0">
+                        <AvatarImage 
+                          src={appointment.tutorPhotoURL} 
+                          alt={appointment.tutorName}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                        <AvatarFallback className="bg-primary/10">
+                          <GraduationCap className="h-6 w-6 text-primary" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm mb-0.5">{appointment.tutorName}</h3>
+                        <p className="text-xs text-muted-foreground mb-3">{appointment.tutorSubject}</p>
+                        <div className="space-y-1.5 mb-3">
+                          <div className="flex items-center gap-2 text-xs">
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">{formattedDate}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">{formattedTime}</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleJoinSession(appointment)}
+                          className="w-full"
+                        >
+                          <VideoIcon className="h-3.5 w-3.5 mr-2" />
+                          Join Session
+                        </Button>
+                      </div>
+                    </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    )}
+
+    {/* Badges Section */}
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-lg">Badges & Achievements</CardTitle>
+        <CardDescription className="text-sm">
+          Earn badges by completing challenges and reaching milestones
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {earnedBadges.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <Award className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="text-sm">No badges earned yet. Start studying to earn your first badge!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {earnedBadges.map((badge) => (
+              <motion.div
+                key={badge.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-4 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="text-3xl">{badge.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm mb-1">{badge.name}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{badge.description}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+        
+        {/* Show some available badges as locked */}
+        {earnedBadges.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-border/50">
+            <h4 className="text-xs font-medium text-muted-foreground mb-4 uppercase tracking-wide">Available Badges</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {Object.values(BADGES).slice(0, 8).map((badge) => {
+                const isEarned = earnedBadges.some(b => b.id === badge.id);
+                return (
+                  <div
+                    key={badge.id}
+                    className={cn(
+                      "p-3 rounded-lg text-center transition-all border-0",
+                      isEarned
+                        ? "bg-primary/10"
+                        : "bg-muted/30 opacity-50"
+                    )}
+                  >
+                    <div className="text-xl mb-1">{badge.icon}</div>
+                    <p className="text-xs font-medium">{badge.name}</p>
+                    {isEarned && (
+                      <div className="mt-1">
+                        <CheckCircle className="h-3 w-3 text-primary mx-auto" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
 
@@ -288,7 +540,7 @@ const GoalsSection = ({ currentUser }) => {
           <Card className="border-primary/50 bg-primary/5">
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Goal Title</label>
+                <label htmlFor="goal-title" className="text-sm font-medium">Goal Title</label>
                 <Input
                   id="goal-title"
                   name="goal-title"
@@ -302,11 +554,12 @@ const GoalsSection = ({ currentUser }) => {
                       setNewGoalTitle('');
                     }
                   }}
+                  autoComplete="off"
                   autoFocus
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Target (optional)</label>
+                <label htmlFor="goal-target" className="text-sm font-medium">Target (optional)</label>
                 <Input
                   id="goal-target"
                   name="goal-target"
@@ -316,6 +569,7 @@ const GoalsSection = ({ currentUser }) => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddGoal();
                   }}
+                  autoComplete="off"
                 />
               </div>
               <div className="flex gap-2">

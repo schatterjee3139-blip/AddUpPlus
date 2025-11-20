@@ -13,13 +13,24 @@ export const Avatar = forwardRef(({ className, ...props }, ref) => (
 ));
 Avatar.displayName = 'Avatar';
 
-export const AvatarImage = forwardRef(({ className, ...props }, ref) => (
-  <img
-    ref={ref}
-    className={cn('aspect-square h-full w-full', className)}
-    {...props}
-  />
-));
+export const AvatarImage = forwardRef(({ className, crossOrigin, src, ...props }, ref) => {
+  // Only set crossOrigin for external URLs (like Google profile images)
+  // Same-origin images don't need it and it can cause issues
+  const isExternalUrl = src && (src.startsWith('http://') || src.startsWith('https://'));
+  const shouldUseCrossOrigin = crossOrigin !== undefined 
+    ? crossOrigin 
+    : (isExternalUrl ? 'anonymous' : undefined);
+  
+  return (
+    <img
+      ref={ref}
+      className={cn('aspect-square h-full w-full', className)}
+      crossOrigin={shouldUseCrossOrigin}
+      src={src}
+      {...props}
+    />
+  );
+});
 AvatarImage.displayName = 'AvatarImage';
 
 export const AvatarFallback = forwardRef(({ className, ...props }, ref) => (

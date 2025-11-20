@@ -18,6 +18,8 @@ import {
   Briefcase,
   LogOut,
   GraduationCap,
+  Sparkles,
+  Brain,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/Avatar';
@@ -34,6 +36,8 @@ const navItems = [
   { name: 'Quizzes', icon: CheckSquare, page: 'quizzes' },
   { name: 'Equations', icon: Pi, page: 'equations' },
   { name: 'Planner', icon: Calendar, page: 'planner' },
+  { name: 'Study Plan', icon: Sparkles, page: 'study-plan' },
+  { name: 'Teacher Profiles', icon: Brain, page: 'teacher-profiles' },
   { name: 'Tutors', icon: GraduationCap, page: 'tutors' },
   { name: 'Analytics', icon: BarChart3, page: 'analytics' },
   { name: 'Settings', icon: Settings, page: 'settings' },
@@ -176,7 +180,7 @@ export const LeftSidebar = ({
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto p-2 space-y-2 border-t border-border">
+      <div className="mt-auto p-2 space-y-2 border-t border-border/50">
         <ThemeToggle isCollapsed={isCollapsed} />
         {userProfile && (
           <>

@@ -4,7 +4,7 @@ import { X, Loader2, Sparkles } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Textarea } from './ui/Textarea';
-import { chatCompletion } from '../lib/api';
+import { chatCompletionStream } from '../lib/api';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
 import { stripMarkdown } from '../lib/utils';
 
@@ -22,29 +22,39 @@ export const AIModal = ({ isOpen, onClose, title = 'AI Assistant', initialPrompt
     }
   }, [initialPrompt]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!prompt.trim() || isLoading) return;
 
     setIsLoading(true);
     setError(null);
     setResponse('');
 
-    try {
-      const result = await chatCompletion(prompt);
-      const aiResponse = result.choices?.[0]?.message?.content || result.content || 'No response received.';
-      const cleanedResponse = stripMarkdown(aiResponse);
-      setResponse(cleanedResponse);
-      recordAIInteraction();
-      
-      if (onResult) {
-        onResult(cleanedResponse);
+    let accumulatedContent = '';
+
+    chatCompletionStream(
+      prompt,
+      (chunk) => {
+        // Called for each chunk
+        accumulatedContent += chunk;
+        const cleanedChunk = stripMarkdown(accumulatedContent);
+        setResponse(cleanedChunk);
+      },
+      (error) => {
+        // Called on completion or error
+        setIsLoading(false);
+
+        if (error) {
+          console.error('AI error:', error);
+          setError(error.message || 'Failed to get AI response. Please try again.');
+        } else {
+          // Success
+          recordAIInteraction();
+          if (onResult) {
+            onResult(accumulatedContent);
+          }
+        }
       }
-    } catch (err) {
-      console.error('AI error:', err);
-      setError(err.message || 'Failed to get AI response. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    );
   };
 
   const handleClose = () => {

@@ -31,4 +31,31 @@ dist-ssr
 *.env
 !.env.example
 
+# Firebase
+firebase-debug.log
+.firebase/
+firebase.json
+.firebaserc
+
+# Build outputs
+build/
+dist/
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
 

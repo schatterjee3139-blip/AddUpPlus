@@ -42,43 +42,31 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Test Firestore connection
-try {
-  // This will throw an error if Firestore isn't accessible
+// Test Firestore connection (only in development, and only once)
+if (import.meta.env.DEV) {
+  let connectionTested = false;
   const testConnection = async () => {
+    if (connectionTested) return;
+    connectionTested = true;
+    
     try {
-      const { collection, getDocs } = await import('firebase/firestore');
-      const testCollection = collection(db, '_test');
-      await getDocs(testCollection);
-      console.log('✅ Firestore connection test passed');
+      // Just check if Firestore is initialized, don't make actual queries
+      if (db) {
+        console.log('✅ Firestore initialized successfully');
+      }
     } catch (error) {
       if (error.code === 'permission-denied') {
-        console.error('❌ Firestore permission denied. Check your security rules!');
-        console.error('Go to Firebase Console > Firestore Database > Rules');
-        console.error('Make sure you have rules that allow authenticated users to read/write:');
-        console.error(`
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-        `);
+        console.warn('⚠️ Firestore permission denied. Check your security rules!');
+        console.warn('Go to Firebase Console > Firestore Database > Rules');
       } else if (error.code === 'failed-precondition') {
-        console.error('❌ Firestore database not created!');
-        console.error('Go to Firebase Console > Firestore Database > Create database');
-      } else {
-        console.error('❌ Firestore connection error:', error.code, error.message);
+        console.warn('⚠️ Firestore database not created!');
+        console.warn('Go to Firebase Console > Firestore Database > Create database');
       }
     }
   };
   
-  // Test connection after a short delay
-  setTimeout(testConnection, 1000);
-} catch (error) {
-  console.error('❌ Error setting up Firestore:', error);
+  // Test connection after a delay (only in dev)
+  setTimeout(testConnection, 2000);
 }
 
 export default app;

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Sparkles, Trophy, TrendingUp, RotateCcw, CheckSquare } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Sparkles, Trophy, TrendingUp, RotateCcw, CheckSquare, BookOpen, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Label } from '../components/ui/Label';
 import { generateQuizQuestions } from '../lib/aiHelpers';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
+import { useCourseCatalog } from '../contexts/CourseCatalogContext.jsx';
 import { chatCompletion } from '../lib/api';
 import { stripMarkdown } from '../lib/utils';
 import { motion } from 'framer-motion';
@@ -65,14 +67,24 @@ export const QuizView = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [topic, setTopic] = useState('Insert topic');
+  const [topic, setTopic] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
   const [questionCount, setQuestionCount] = useState(5);
   const [questions, setQuestions] = useState(fallbackQuestions);
   const [quizSummary, setQuizSummary] = useState('');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const { recordQuizResult, recordAIInteraction } = useStudyMetrics();
+  const { joinedCourses, getCourseById } = useCourseCatalog();
 
   const totalQuestions = questions.length;
+
+  // Reset course selection when quiz is reset
+  useEffect(() => {
+    if (!isConfigured) {
+      setSelectedCourseId('');
+      setTopic('');
+    }
+  }, [isConfigured]);
 
   const computeScore = useCallback(() => {
     let correctAnswers = 0;
@@ -198,6 +210,8 @@ Make sure all questions are specifically about ${topic} and not about other subj
     setQuestions(fallbackQuestions);
     setQuizSummary('');
     setIsGeneratingSummary(false);
+    setSelectedCourseId('');
+    setTopic('');
   };
   
   const score = computeScore();
@@ -375,33 +389,86 @@ Make sure all questions are specifically about ${topic} and not about other subj
 
   if (!isConfigured) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-6 bg-gradient-to-br from-background via-background to-primary/5">
-        <Card className="w-full max-w-2xl border-2 shadow-xl">
-          <CardHeader className="text-center space-y-2 pb-6">
-            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <CheckSquare className="h-8 w-8 text-primary" />
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-6">
+        <Card className="w-full max-w-2xl border-0 shadow-sm">
+          <CardHeader className="text-center space-y-2 pb-4">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <CheckSquare className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-3xl">Create Your Quiz</CardTitle>
-            <CardDescription className="text-base">
+            <CardTitle className="text-2xl font-semibold">Create Your Quiz</CardTitle>
+            <CardDescription className="text-sm">
               Tell us what you want to study and we'll build a personalized quiz for you
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-6" onSubmit={configureQuiz}>
+            <form className="space-y-5" onSubmit={configureQuiz}>
+              {joinedCourses.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="course-select" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Select Course (Optional)
+                  </Label>
+                  <div className="relative">
+                    <select
+                      id="course-select"
+                      name="course-select"
+                      value={selectedCourseId}
+                      onChange={(e) => {
+                        const courseId = e.target.value;
+                        setSelectedCourseId(courseId);
+                        if (courseId) {
+                          const course = getCourseById(courseId);
+                          if (course) {
+                            setTopic(course.name);
+                          }
+                        } else {
+                          // Clear topic when course is deselected
+                          setTopic('');
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring pr-10 appearance-none h-12 text-base"
+                    >
+                      <option value="">-- Select a course from your workspace --</option>
+                      {joinedCourses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Choose a course from your workspace, or enter a custom topic below
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground" htmlFor="topic">
-                  Quiz Topic
-                </label>
+                <Label htmlFor="topic" className="text-sm font-semibold text-foreground">
+                  Quiz Topic {joinedCourses.length > 0 ? '(or customize)' : '*'}
+                </Label>
                 <Input
                   id="topic"
+                  name="topic"
                   placeholder="e.g. Algebra, Calculus, Geometry, Trigonometry..."
                   value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
+                  onChange={(e) => {
+                    setTopic(e.target.value);
+                    // Clear course selection if user manually types
+                    if (e.target.value && selectedCourseId) {
+                      const course = getCourseById(selectedCourseId);
+                      if (course && e.target.value !== course.name) {
+                        setSelectedCourseId('');
+                      }
+                    }
+                  }}
+                  autoComplete="off"
                   required
                   className="h-12 text-base"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Be specific for better questions
+                  {joinedCourses.length > 0 
+                    ? 'Select a course above or enter a custom topic'
+                    : 'Be specific for better questions. Add courses to your workspace to see them here.'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -410,11 +477,13 @@ Make sure all questions are specifically about ${topic} and not about other subj
                 </label>
                 <Input
                   id="questionCount"
+                  name="questionCount"
                   type="number"
                   min={3}
                   max={15}
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  autoComplete="off"
                   className="h-12 text-base"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -540,6 +609,7 @@ Make sure all questions are specifically about ${topic} and not about other subj
                   The slowest step in a reaction mechanism is called the{' '}
                   <input
                     type="text"
+                    autoComplete="off"
                     className={`inline-block w-48 mx-2 p-1 text-lg border-b-2 bg-transparent focus:outline-none ${
                       isSubmitted
                         ? selectedAnswers[currentQ.id]?.toLowerCase() === currentQ.answer

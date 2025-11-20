@@ -7,18 +7,23 @@ import {
   Loader2,
   BarChart3,
   GripVertical,
+  Upload,
+  X,
+  File,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/Tabs';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/Avatar';
-import { chatCompletion } from '../../lib/api';
+import { chatCompletionStream } from '../../lib/api';
 import { useStudyMetrics } from '../../contexts/StudyMetricsContext.jsx';
 import { stripMarkdown } from '../../lib/utils';
 import { DesmosCalculator } from '../DesmosCalculator';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToUserData, updateAIChatData, initializeUserData } from '../../lib/firestore';
+import { processFile, formatMessageWithFile } from '../../lib/fileProcessing';
 
 export const RightSidebar = () => {
   const { currentUser } = useAuth();
@@ -116,8 +121,16 @@ export const RightSidebar = () => {
                 isInitialLoadRef.current = false;
               } else {
                 const timeSinceLastSave = Date.now() - lastSaveTimeRef.current;
-                if (!isUpdatingRef.current && timeSinceLastSave > 2000) {
-                  setMessages(userData.aiChat.messages);
+                // Increase time window to 5 seconds to prevent overwriting recent saves
+                if (!isUpdatingRef.current && timeSinceLastSave > 5000) {
+                  // Only update if Firebase has more messages than local (to prevent clearing)
+                  setMessages((prevMessages) => {
+                    if (userData.aiChat.messages.length >= prevMessages.length) {
+                      return userData.aiChat.messages;
+                    }
+                    // Keep local messages if they're newer/more complete
+                    return prevMessages;
+                  });
                 }
               }
             } else if (isInitialLoadRef.current) {
@@ -129,6 +142,7 @@ export const RightSidebar = () => {
               }]);
               isInitialLoadRef.current = false;
             }
+            // Don't clear messages if Firebase returns empty but we have local messages
           } else if (isInitialLoadRef.current) {
             // No chat data, set initial message only on initial load
             const firstName = getUserFirstName();
@@ -138,6 +152,7 @@ export const RightSidebar = () => {
             }]);
             isInitialLoadRef.current = false;
           }
+          // Don't clear messages if userData.aiChat doesn't exist but we have local messages
         });
 
         return unsubscribe;
@@ -176,9 +191,10 @@ export const RightSidebar = () => {
         lastSaveTimeRef.current = Date.now();
         updateAIChatData(currentUser.uid, { messages })
           .then(() => {
+            // Keep the flag for longer to prevent overwrites
             setTimeout(() => {
               isUpdatingRef.current = false;
-            }, 1000);
+            }, 3000); // Increased from 1000 to 3000ms
           })
           .catch((error) => {
             console.error('Failed to save AI chat:', error);
@@ -210,6 +226,9 @@ export const RightSidebar = () => {
   
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const fileInputRef = useRef(null);
   const { recordAIInteraction } = useStudyMetrics();
 
   // Handle resizing
@@ -250,27 +269,98 @@ export const RightSidebar = () => {
     };
   }, [isResizing]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleFileUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
 
-    const userMessage = inputValue.trim();
+    setIsProcessingFile(true);
+    const processedFiles = [];
+
+    try {
+      for (const file of files) {
+        try {
+          const fileData = await processFile(file);
+          processedFiles.push(fileData);
+        } catch (error) {
+          console.error(`Error processing file ${file.name}:`, error);
+          // Show error but continue with other files
+        }
+      }
+
+      setAttachedFiles((prev) => [...prev, ...processedFiles]);
+    } catch (error) {
+      console.error('Error processing files:', error);
+    } finally {
+      setIsProcessingFile(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeFile = (index) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSendMessage = async () => {
+    if ((!inputValue.trim() && attachedFiles.length === 0) || isLoading) return;
+
+    const userMessage = inputValue.trim() || 'Please analyze this file.';
+    const messageWithFiles = attachedFiles.length > 0
+      ? formatMessageWithFile(attachedFiles[0], userMessage) // For now, handle first file
+      : userMessage;
+
     setInputValue('');
+    const filesToSend = [...attachedFiles];
+    setAttachedFiles([]);
     setIsLoading(true);
     isWaitingForAIResponseRef.current = true; // Prevent Firebase from overwriting
 
     // Use functional update to add user message immediately
     let conversationHistory;
     setMessages((prevMessages) => {
-      // Add user message to state immediately
-      const updatedMessages = [...prevMessages, { role: 'user', content: userMessage }];
+      // Add user message with file info to state immediately
+      const messageContent = filesToSend.length > 0
+        ? `${userMessage}${filesToSend.map(f => `\n[Attached: ${f.name}]`).join('')}`
+        : userMessage;
+      
+      const updatedMessages = [...prevMessages, { 
+        role: 'user', 
+        content: messageContent,
+        files: filesToSend.length > 0 ? filesToSend : undefined,
+      }];
       
       // Prepare conversation history for API
       conversationHistory = updatedMessages
         .filter(msg => msg && msg.role && msg.content)
-        .map(msg => ({
-          role: msg.role,
-          content: String(msg.content || '').trim(),
-        }))
+        .map(msg => {
+          // If message has files, include file content in the message
+          if (msg.files && msg.files.length > 0) {
+            let content = String(msg.content || '').trim();
+            // Add file content to the message (truncate if too long)
+            msg.files.forEach((file) => {
+              if (file.type === 'pdf') {
+                // Limit PDF content to avoid token limits
+                const pdfContent = file.content.length > 10000 
+                  ? file.content.substring(0, 10000) + '\n\n[Content truncated. Please ask about specific sections if needed.]'
+                  : file.content;
+                content += `\n\n[PDF Content from ${file.name}]:\n${pdfContent}`;
+              } else if (file.type === 'image') {
+                // For images, we include a note (base64 is too large for text)
+                content += `\n\n[Image: ${file.name} - Please analyze this image]`;
+              }
+            });
+            return {
+              role: msg.role,
+              content: content.trim(),
+            };
+          }
+          return {
+            role: msg.role,
+            content: String(msg.content || '').trim(),
+          };
+        })
         .filter(msg => msg.content.length > 0); // Remove empty messages
 
       return updatedMessages;
@@ -279,89 +369,105 @@ export const RightSidebar = () => {
     // Wait a tick to ensure state is updated
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    try {
-      if (!conversationHistory || conversationHistory.length === 0) {
-        throw new Error('No valid messages to send');
-      }
-
-      console.log('Sending to NVIDIA API:', {
-        messageCount: conversationHistory.length,
-        lastMessage: conversationHistory[conversationHistory.length - 1]?.content?.substring(0, 50),
-      });
-
-      const response = await chatCompletion(conversationHistory);
-      
-      // Handle different response formats
-      let aiResponse = null;
-      
-      if (response.choices && Array.isArray(response.choices) && response.choices.length > 0) {
-        // Standard OpenAI-compatible format
-        aiResponse = response.choices[0]?.message?.content || 
-                     response.choices[0]?.text ||
-                     response.choices[0]?.content;
-      } else if (response.content) {
-        // Direct content field
-        aiResponse = response.content;
-      } else if (response.text) {
-        // Text field
-        aiResponse = response.text;
-      } else if (response.message) {
-        // Message object
-        aiResponse = response.message.content || response.message.text || response.message;
-      } else if (typeof response === 'string') {
-        // String response
-        aiResponse = response;
-      }
-
-      if (!aiResponse || aiResponse.trim().length === 0) {
-        console.error('Unexpected API response format:', response);
-        throw new Error('Received empty or invalid response from AI. Please try again.');
-      }
-
-      const cleanedResponse = stripMarkdown(String(aiResponse));
-      
-      // Use functional update to ensure we have the latest messages
-      setMessages((prev) => {
-        // Check if user message is already in the list (should be the last one)
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.role === 'user' && lastMessage.content === userMessage) {
-          // User message is already there, just add AI response
-          return [...prev, { role: 'assistant', content: cleanedResponse }];
-        }
-        // If for some reason user message is missing, add both
-        return [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: cleanedResponse }];
-      });
-      
-      recordAIInteraction();
-    } catch (error) {
-      console.error('AI Chat error:', error);
-      let errorMessage = error.message || 'An unknown error occurred';
-      
-      // Provide more helpful error messages
-      if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
-        errorMessage = 'The request took too long. This might be due to a complex question. Please try breaking it down into smaller parts or try again.';
-      } else if (errorMessage.includes('CORS') || errorMessage.includes('Network error')) {
-        errorMessage = 'Network error: Unable to connect to NVIDIA API. The server may need to be restarted, or there may be a CORS issue.';
-      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        errorMessage = 'Authentication error: Please check your NVIDIA API key in the .env file.';
-      } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
-        errorMessage = 'Access denied: Your API key may not have the required permissions.';
-      } else if (errorMessage.includes('empty') || errorMessage.includes('invalid response')) {
-        errorMessage = 'The AI returned an empty response. Please try rephrasing your question.';
-      }
-      
-      // Use functional update to add error message
-      setMessages((prev) => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.role === 'user' && lastMessage.content === userMessage) {
-          return [...prev, { role: 'assistant', content: `Error: ${errorMessage}` }];
-        }
-        return [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: `Error: ${errorMessage}` }];
-      });
-    } finally {
+    if (!conversationHistory || conversationHistory.length === 0) {
       setIsLoading(false);
-      isWaitingForAIResponseRef.current = false; // Allow Firebase updates again
+      isWaitingForAIResponseRef.current = false;
+      return;
     }
+
+    console.log('Sending to NVIDIA API (streaming):', {
+      messageCount: conversationHistory.length,
+      lastMessage: conversationHistory[conversationHistory.length - 1]?.content?.substring(0, 50),
+    });
+
+    // Add placeholder assistant message that we'll update as chunks arrive
+    setMessages((prev) => {
+      const lastMessage = prev[prev.length - 1];
+      const userMessageMatch = lastMessage && (
+        (typeof lastMessage.content === 'string' && lastMessage.content.includes(userMessage)) ||
+        lastMessage.content === userMessage ||
+        (lastMessage.role === 'user' && String(lastMessage.content).trim() === userMessage.trim())
+      );
+      
+      if (lastMessage && userMessageMatch) {
+        return [...prev, { role: 'assistant', content: '' }];
+      }
+      return [...prev, { role: 'user', content: userMessage }, { role: 'assistant', content: '' }];
+    });
+
+    // Start streaming
+    let accumulatedContent = '';
+    const abortController = chatCompletionStream(
+      conversationHistory,
+      (chunk) => {
+        // Called for each chunk
+        accumulatedContent += chunk;
+        const cleanedChunk = stripMarkdown(accumulatedContent);
+        
+        // Update the last assistant message (the one we just added) with accumulated content
+        setMessages((prev) => {
+          const updated = [...prev];
+          // Find the last assistant message (should be the one we just added)
+          for (let i = updated.length - 1; i >= 0; i--) {
+            if (updated[i].role === 'assistant') {
+              updated[i] = {
+                ...updated[i],
+                content: cleanedChunk,
+              };
+              break;
+            }
+          }
+          return updated;
+        });
+      },
+      (error) => {
+        // Called on completion or error
+        setIsLoading(false);
+        isWaitingForAIResponseRef.current = false;
+
+        if (error) {
+          console.error('AI Chat streaming error:', error);
+          let errorMessage = error.message || 'An unknown error occurred';
+          
+          // Provide more helpful error messages
+          if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+            errorMessage = 'The request took too long. This might be due to a complex question. Please try breaking it down into smaller parts or try again.';
+          } else if (errorMessage.includes('CORS') || errorMessage.includes('Network error')) {
+            errorMessage = 'Network error: Unable to connect to NVIDIA API. The server may need to be restarted, or there may be a CORS issue.';
+          } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+            errorMessage = 'Authentication error: Please check your NVIDIA API key in the .env file.';
+          } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+            errorMessage = 'Access denied: Your API key may not have the required permissions.';
+          } else if (errorMessage.includes('empty') || errorMessage.includes('invalid response')) {
+            errorMessage = 'The AI returned an empty response. Please try rephrasing your question.';
+          }
+          
+          // Update the last assistant message with error
+          setMessages((prev) => {
+            const updated = [...prev];
+            // Find the last assistant message
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'assistant') {
+                updated[i] = {
+                  ...updated[i],
+                  content: `Error: ${errorMessage}`,
+                };
+                break;
+              }
+            }
+            return updated;
+          });
+        } else {
+          // Success - record interaction
+          recordAIInteraction();
+        }
+      },
+      'meta/llama-3.1-8b-instruct',
+      { useNoThink: true }
+    );
+
+    // Store abort controller for potential cancellation
+    // You could add a cancel button that calls abortController.abort()
   };
 
   return (
@@ -430,6 +536,37 @@ export const RightSidebar = () => {
                         : 'bg-background'
                     }`}
                   >
+                    {/* Display attached files */}
+                    {message.files && message.files.length > 0 && (
+                      <div className="mb-2 space-y-2">
+                        {message.files.map((file, fileIndex) => (
+                          <div
+                            key={fileIndex}
+                            className={`p-2 rounded border ${
+                              message.role === 'user'
+                                ? 'bg-primary/20 border-primary/30'
+                                : 'bg-muted border-border'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 text-xs">
+                              {file.type === 'pdf' ? (
+                                <File className="h-3 w-3" />
+                              ) : (
+                                <ImageIcon className="h-3 w-3" />
+                              )}
+                              <span className="font-medium">{file.name}</span>
+                            </div>
+                            {file.type === 'image' && file.preview && (
+                              <img
+                                src={file.preview}
+                                alt={file.name}
+                                className="mt-2 max-w-full max-h-32 rounded object-contain"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <p className="text-sm whitespace-pre-wrap break-words">
                       {message.role === 'assistant' ? stripMarkdown(message.content) : message.content}
                     </p>
@@ -457,36 +594,99 @@ export const RightSidebar = () => {
               )}
               <div ref={messagesEndRef} />
             </div>
+            {/* Attached Files Preview */}
+            {attachedFiles.length > 0 && (
+              <div className="mt-4 space-y-2 flex-shrink-0">
+                <div className="text-xs font-medium text-muted-foreground">Attached Files:</div>
+                <div className="flex flex-wrap gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border"
+                    >
+                      {file.type === 'pdf' ? (
+                        <File className="h-4 w-4 text-primary" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4 text-primary" />
+                      )}
+                      <span className="text-xs font-medium max-w-[120px] truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="ml-1 hover:bg-background rounded p-0.5 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Input */}
             <div className="mt-4 relative flex-shrink-0">
-              <Input
-                id="ai-chat-input"
-                name="ai-chat-input"
-                placeholder="Ask AI..."
-                className="pr-10"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                disabled={isLoading}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1 h-8 w-8"
-                onClick={handleSendMessage}
-                disabled={isLoading || !inputValue.trim()}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowRight className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="file-upload"
+                  disabled={isLoading || isProcessingFile}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 flex-shrink-0"
+                  disabled={isLoading || isProcessingFile}
+                  title="Upload PDF or Image"
+                  onClick={() => {
+                    if (fileInputRef.current && !isLoading && !isProcessingFile) {
+                      fileInputRef.current.click();
+                    }
+                  }}
+                >
+                  {isProcessingFile ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                </Button>
+                <Input
+                  id="ai-chat-input"
+                  name="ai-chat-input"
+                  placeholder={attachedFiles.length > 0 ? "Add a message or send..." : "Ask AI..."}
+                  className="flex-1 pr-10"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  disabled={isLoading || isProcessingFile}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1 h-8 w-8"
+                  onClick={handleSendMessage}
+                  disabled={isLoading || (!inputValue.trim() && attachedFiles.length === 0)}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Upload PDFs or images to analyze (max 10MB)
+              </p>
             </div>
           </TabsContent>
         )}

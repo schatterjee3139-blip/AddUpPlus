@@ -31,7 +31,7 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
   }, [showCreateModal, showNotifications]);
 
   return (
-    <header className="flex items-center justify-between h-16 border-b border-border bg-card px-4 md:px-6 sticky top-0 z-10">
+    <header className="flex items-center justify-between h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-10">
       {/* Breadcrumbs */}
       <div className="flex items-center text-sm font-medium text-muted-foreground">
         {breadcrumbs.map((crumb, index) => (
@@ -57,8 +57,8 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
             <Plus className="h-4 w-4 mr-2" /> New
           </Button>
           {showCreateModal && (
-            <div className="absolute right-0 top-full mt-2 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[240px] p-2">
-              <div className="text-sm font-semibold px-3 py-2 text-muted-foreground">
+            <div className="absolute right-0 top-full mt-2 bg-card border border-border/50 rounded-lg shadow-lg z-50 min-w-[200px] p-1.5">
+              <div className="text-xs font-medium px-2 py-1.5 text-muted-foreground uppercase tracking-wide">
                 Create New
               </div>
               <Button
@@ -107,9 +107,9 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
             )}
           </Button>
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 bg-card border border-border rounded-lg shadow-lg z-50 w-80 max-h-96 overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h3 className="font-semibold">Notifications</h3>
+            <div className="absolute right-0 top-full mt-2 bg-card border border-border/50 rounded-lg shadow-lg z-50 w-80 max-h-96 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between p-3 border-b border-border/50">
+                <h3 className="text-sm font-semibold">Notifications</h3>
                 {unreadCount > 0 && (
                   <Button
                     variant="ghost"
@@ -127,11 +127,11 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
                     No notifications
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
+                  <div className="divide-y divide-border/50">
                     {notifications.map((notification) => (
                       <div
                         key={notification.id}
-                        className={`p-4 hover:bg-muted/50 transition-colors ${
+                        className={`p-3 hover:bg-muted/30 transition-colors ${
                           !notification.read ? 'bg-primary/5' : ''
                         }`}
                         onClick={() => {

@@ -345,7 +345,10 @@ export const CourseCatalogProvider = ({ children }) => {
             }, 1000);
           })
           .catch((error) => {
-            console.error('Failed to update course data in Firebase:', error);
+            // Silently handle quota errors
+            if (error.code !== 'resource-exhausted') {
+              console.error('Failed to update course data in Firebase:', error);
+            }
             isUpdatingRef.current = false;
           });
       } else {
@@ -361,7 +364,7 @@ export const CourseCatalogProvider = ({ children }) => {
           }
         }
       }
-    }, 500); // Debounce by 500ms
+    }, 3000); // Debounce by 3 seconds (increased to reduce quota usage)
 
     return () => clearTimeout(timeoutId);
   }, [joinedCourseIds, courseBlueprints, courseWorkspaceData, courseYouTubeVideos, currentUser]);

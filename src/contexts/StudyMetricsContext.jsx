@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { subscribeToUserData, updateStudyMetrics, initializeUserData } from '../lib/firestore';
+import { calculateTotalXP, getXPProgress, checkBadges } from '../lib/gamification';
 
 const defaultMetrics = {
   flashcardsReviewed: 0,
@@ -12,6 +13,8 @@ const defaultMetrics = {
   studyMinutes: 0,
   dailyStudyTime: {}, // { 'YYYY-MM-DD': minutes }
   weeklyStats: [], // Array of weekly totals
+  earnedBadges: [], // Array of badge IDs that have been earned
+  totalXP: 0, // Total experience points
 };
 
 const StudyMetricsContext = createContext(null);
@@ -185,18 +188,16 @@ export const StudyMetricsProvider = ({ children }) => {
     };
   }, []);
 
-  // Persist to Firebase or localStorage
+  // Persist to Firebase or localStorage (with aggressive debouncing)
   useEffect(() => {
     // Skip if this is the initial load from Firebase
     if (isInitialLoadRef.current && currentUser) {
-      console.log('Skipping save - initial load in progress');
       return;
     }
 
     // Skip if metrics are still default (to avoid saving zeros on first render)
     if (metrics.aiInteractions === 0 && metrics.studyMinutes === 0 && 
         metrics.flashcardsReviewed === 0 && metrics.quizzesCompleted === 0) {
-      console.log('Skipping save - metrics are all zeros (likely default state)');
       return;
     }
 
@@ -205,35 +206,39 @@ export const StudyMetricsProvider = ({ children }) => {
       return;
     }
 
-    if (currentUser) {
-      // Mark that we're updating
-      isUpdatingRef.current = true;
-      lastSaveTimeRef.current = Date.now();
-      
-      console.log('Saving metrics to Firebase:', metrics);
-      
-      // Update Firebase
-      updateStudyMetrics(currentUser.uid, metrics)
-        .then(() => {
-          console.log('✅ Study metrics saved successfully to Firebase:', metrics);
-          // Clear the flag after a short delay
-          setTimeout(() => {
+    // Aggressive debouncing - wait 5 seconds before saving
+    const timeoutId = setTimeout(() => {
+      if (currentUser) {
+        // Mark that we're updating
+        isUpdatingRef.current = true;
+        lastSaveTimeRef.current = Date.now();
+        
+        // Update Firebase
+        updateStudyMetrics(currentUser.uid, metrics)
+          .then(() => {
+            // Clear the flag after a short delay
+            setTimeout(() => {
+              isUpdatingRef.current = false;
+            }, 1000);
+          })
+          .catch((error) => {
+            // Silently handle quota errors
+            if (error.code !== 'resource-exhausted') {
+              console.error('❌ Failed to update study metrics in Firebase:', error);
+            }
             isUpdatingRef.current = false;
-          }, 1000);
-        })
-        .catch((error) => {
-          console.error('❌ Failed to update study metrics in Firebase:', error);
-          isUpdatingRef.current = false;
-        });
-    } else {
-      // Fallback to localStorage (only for non-guest users)
-      try {
-        localStorage.setItem('studyMetrics', JSON.stringify(metrics));
-        console.log('Study metrics saved to localStorage:', metrics);
-      } catch (error) {
-        console.warn('Failed to persist study metrics', error);
+          });
+      } else {
+        // Fallback to localStorage (only for non-guest users)
+        try {
+          localStorage.setItem('studyMetrics', JSON.stringify(metrics));
+        } catch (error) {
+          console.warn('Failed to persist study metrics', error);
+        }
       }
-    }
+    }, 5000); // 5 second debounce to reduce writes
+
+    return () => clearTimeout(timeoutId);
   }, [metrics, currentUser]);
 
   const recordFlashcardReview = (isCorrect) => {
@@ -272,6 +277,7 @@ export const StudyMetricsProvider = ({ children }) => {
     setMetrics(defaultMetrics);
   };
 
+  // Calculate derived metrics first
   const derived = useMemo(() => {
     const flashcardAccuracy = metrics.flashcardsReviewed
       ? Math.round((metrics.flashcardsCorrect / metrics.flashcardsReviewed) * 100)
@@ -286,11 +292,54 @@ export const StudyMetricsProvider = ({ children }) => {
     };
   }, [metrics]);
 
+  // Calculate XP and level progress
+  const xpProgress = useMemo(() => {
+    const totalXP = calculateTotalXP(metrics);
+    return getXPProgress(totalXP);
+  }, [metrics]);
+
+  // Check for new badges and update XP
+  useEffect(() => {
+    // Skip if this is initial load
+    if (isInitialLoadRef.current && currentUser) {
+      return;
+    }
+    
+    const earnedBadges = checkBadges(metrics, derived, {}, xpProgress);
+    const currentBadgeIds = new Set(metrics.earnedBadges || []);
+    const newBadges = earnedBadges.filter(badge => !currentBadgeIds.has(badge.id));
+    
+    // Always update totalXP
+    const shouldUpdate = newBadges.length > 0 || metrics.totalXP !== xpProgress.totalXP;
+    
+    if (shouldUpdate) {
+      setMetrics((prev) => ({
+        ...prev,
+        earnedBadges: newBadges.length > 0 
+          ? [...(prev.earnedBadges || []), ...newBadges.map(b => b.id)]
+          : prev.earnedBadges || [],
+        totalXP: xpProgress.totalXP,
+      }));
+      
+      // Trigger notification for new badges
+      if (newBadges.length > 0 && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('badge-earned', { detail: newBadges }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metrics, derived, xpProgress]);
+
+  // Update derived to include xpProgress
+  const derivedWithXP = useMemo(() => ({
+    ...derived,
+    xpProgress,
+  }), [derived, xpProgress]);
+
   return (
     <StudyMetricsContext.Provider
       value={{
         metrics,
-        derived,
+        derived: derivedWithXP,
         recordFlashcardReview,
         recordQuizResult,
         recordAIInteraction,
