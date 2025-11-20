@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/nvidia/chat/completions.js": {
+      "maxDuration": 60
+    }
+  }
+}
+

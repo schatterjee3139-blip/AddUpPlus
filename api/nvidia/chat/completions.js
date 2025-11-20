@@ -1,5 +1,5 @@
 /**
- * Vercel serverless function to proxy NVIDIA API requests
+ * Vercel serverless function to proxy NVIDIA API chat completions
  * This avoids CORS issues in production
  */
 export default async function handler(req, res) {
@@ -16,16 +16,11 @@ export default async function handler(req, res) {
     });
   }
 
-  // Get the path from the request (everything after /api/nvidia/)
-  // In Vercel, catch-all routes: /api/nvidia/chat/completions -> req.query.path = ['chat', 'completions']
-  const path = req.query.path && Array.isArray(req.query.path) 
-    ? `/${req.query.path.join('/')}` 
-    : (req.query.path || '');
-  const endpoint = `https://integrate.api.nvidia.com/v1${path}`;
+  const nvidiaUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
 
   try {
     // Forward the request to NVIDIA API
-    const response = await fetch(endpoint, {
+    const response = await fetch(nvidiaUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,14 +33,14 @@ export default async function handler(req, res) {
     const contentType = response.headers.get('content-type') || '';
     const isStreaming = contentType.includes('text/event-stream') || 
                        contentType.includes('text/plain') ||
-                       req.body?.stream === true;
+                       (req.body && req.body.stream === true);
 
     if (isStreaming) {
       // Set headers for streaming
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+      res.setHeader('X-Accel-Buffering', 'no');
 
       // Stream the response
       if (!response.ok) {
