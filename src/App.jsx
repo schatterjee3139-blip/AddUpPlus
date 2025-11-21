@@ -62,6 +62,8 @@ const AppContentInner = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [userRole, setUserRole] = useState(null); // 'tutor' or 'student'
   const [roleLoading, setRoleLoading] = useState(true);
+  const [selectedTutor, setSelectedTutor] = useState(null); // Selected tutor for login
+  const [showTutorSelection, setShowTutorSelection] = useState(false);
 
   // Load user role from Firestore or sessionStorage
   useEffect(() => {
@@ -138,29 +140,37 @@ const AppContentInner = () => {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
 
-    if (!trimmedEmail || !trimmedPassword) {
-      setAuthError('Please fill in all fields.');
-      setAuthLoading(false);
-      return;
-    }
+    // For tutors, validate password is "tutor"
+    if (role === 'tutor') {
+      if (trimmedPassword !== 'tutor') {
+        setAuthError('Invalid tutor password. Please enter "tutor".');
+        setAuthLoading(false);
+        return;
+      }
+      if (!selectedTutor) {
+        setAuthError('Please select a tutor account.');
+        setAuthLoading(false);
+        return;
+      }
+    } else {
+      if (!trimmedEmail || !trimmedPassword) {
+        setAuthError('Please fill in all fields.');
+        setAuthLoading(false);
+        return;
+      }
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(trimmedEmail)) {
-      setAuthError('Please enter a valid email address.');
-      setAuthLoading(false);
-      return;
-    }
-    
-    // Store role if provided
-    if (role) {
-      sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
-      setUserRole(role);
-    }
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(trimmedEmail)) {
+        setAuthError('Please enter a valid email address.');
+        setAuthLoading(false);
+        return;
+      }
 
-    if (trimmedPassword.length < 6) {
-      setAuthError('Password must be at least 6 characters.');
-      setAuthLoading(false);
-      return;
+      if (trimmedPassword.length < 6) {
+        setAuthError('Password must be at least 6 characters.');
+        setAuthLoading(false);
+        return;
+      }
     }
     
     // Store role if provided
@@ -170,7 +180,39 @@ const AppContentInner = () => {
     }
 
     try {
-      if (isLoginMode) {
+      if (role === 'tutor') {
+        // For tutors, try to login first, if account doesn't exist, create it
+        let userCredential;
+        try {
+          userCredential = await login(trimmedEmail, trimmedPassword);
+        } catch (loginError) {
+          // If account doesn't exist, create it
+          if (loginError.code === 'auth/user-not-found' && selectedTutor) {
+            // Create tutor account
+            const nameParts = selectedTutor.name.split(' ');
+            const firstName = nameParts[0] || 'Tutor';
+            const lastName = nameParts.slice(1).join(' ') || 'User';
+            userCredential = await signup(trimmedEmail, trimmedPassword, firstName, lastName);
+          } else {
+            throw loginError;
+          }
+        }
+        
+        // Save role and tutor info to Firestore after login/signup
+        if (userCredential?.user?.uid && selectedTutor) {
+          await updateUserRole(userCredential.user.uid, role);
+          // Store tutor info
+          const { updateUserData } = await import('./lib/firestore');
+          await updateUserData(userCredential.user.uid, {
+            tutorInfo: {
+              id: selectedTutor.id,
+              name: selectedTutor.name,
+              subject: selectedTutor.subject,
+            },
+          }, true);
+        }
+      } else if (isLoginMode) {
+        // For students, login if in login mode
         const userCredential = await login(trimmedEmail, trimmedPassword);
         // Save role to Firestore after login
         if (role && userCredential?.user?.uid) {
@@ -375,7 +417,10 @@ const AppContentInner = () => {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setUserRole('tutor')}
+                  onClick={() => {
+                    setUserRole('tutor');
+                    setShowTutorSelection(true);
+                  }}
                   className={`p-4 rounded-lg border-2 transition-all ${
                     userRole === 'tutor'
                       ? 'border-primary bg-primary/10'
@@ -408,184 +453,225 @@ const AppContentInner = () => {
               </div>
             </div>
 
-            <form className="space-y-6" onSubmit={(e) => handleAuthSubmit(e, userRole)}>
-              {!isLoginMode && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label htmlFor="firstName" className="text-sm font-medium text-muted-foreground">
-                      First name
-                    </label>
-                    <Input
-                      id="firstName"
-                      placeholder="Ada"
-                      value={firstName}
-                      onChange={(event) => setFirstName(event.target.value)}
-                      autoComplete="given-name"
-                      disabled={authLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="lastName" className="text-sm font-medium text-muted-foreground">
-                      Last name
-                    </label>
-                    <Input
-                      id="lastName"
-                      placeholder="Lovelace"
-                      value={lastName}
-                      onChange={(event) => setLastName(event.target.value)}
-                      autoComplete="family-name"
-                      disabled={authLoading}
-                    />
-                  </div>
+            {/* Tutor Selection Screen */}
+            {userRole === 'tutor' && showTutorSelection && !selectedTutor && (
+              <div className="space-y-4">
+                <div className="text-center mb-4">
+                  <p className="text-sm text-muted-foreground">Select your tutor account</p>
                 </div>
-              )}
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
-                  Email
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="ada@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
-                  disabled={authLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete={isLoginMode ? "current-password" : "new-password"}
-                  disabled={authLoading}
-                />
-              </div>
-              {authError && (
-                <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-                  {authError}
+                <div className="space-y-3">
+                  {[
+                    { id: 'tutor-3', name: 'Srish Chaterjee', email: 'srish@tutor.addupplus.com', subject: 'Mathematics & Software Development' },
+                    { id: 'tutor-2', name: 'Zaid Hareb', email: 'zaid@tutor.addupplus.com', subject: 'Mathematics & Programming' },
+                    { id: 'tutor-1', name: 'Alex Huang', email: 'alex@tutor.addupplus.com', subject: 'Mathematics & Computer Science' },
+                  ].map((tutor) => (
+                    <button
+                      key={tutor.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTutor(tutor);
+                        setEmail(tutor.email);
+                        setPassword('');
+                      }}
+                      className="w-full p-4 rounded-lg border-2 border-border hover:border-primary/50 transition-all text-left"
+                    >
+                      <div className="font-semibold">{tutor.name}</div>
+                      <div className="text-sm text-muted-foreground">{tutor.subject}</div>
+                    </button>
+                  ))}
                 </div>
-              )}
-              <Button type="submit" className="w-full" disabled={authLoading}>
-                {authLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isLoginMode ? 'Signing in...' : 'Creating account...'}
-                  </>
-                ) : (
-                  isLoginMode ? 'Sign In' : 'Sign Up'
-                )}
-              </Button>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   className="w-full"
-                  onClick={() => handleGoogleSignIn('tutor')}
-                  disabled={authLoading}
-                >
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  {authLoading ? '...' : 'Tutor'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleGoogleSignIn('student')}
-                  disabled={authLoading}
-                >
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  {authLoading ? '...' : 'Student'}
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleGuestSignIn('tutor')}
-                  disabled={authLoading}
-                >
-                  <GraduationCap className="mr-2 h-4 w-4" />
-                  Guest (Tutor)
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleGuestSignIn('student')}
-                  disabled={authLoading}
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  Guest (Student)
-                </Button>
-              </div>
-
-              <div className="text-center text-sm text-muted-foreground">
-                <button
-                  type="button"
                   onClick={() => {
-                    setIsLoginMode(!isLoginMode);
-                    setAuthError('');
+                    setUserRole(null);
+                    setShowTutorSelection(false);
+                    setSelectedTutor(null);
                   }}
-                  className="text-primary hover:underline"
-                  disabled={authLoading}
                 >
-                  {isLoginMode ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-                </button>
+                  ← Back
+                </Button>
               </div>
-            </form>
+            )}
+
+            {/* Regular Auth Form (Students) or Tutor Password Form */}
+            {(!userRole || userRole === 'student' || (userRole === 'tutor' && selectedTutor)) && (
+              <form className="space-y-6" onSubmit={(e) => handleAuthSubmit(e, userRole)}>
+                {userRole === 'tutor' && selectedTutor && (
+                  <div className="mb-4 p-3 bg-muted rounded-lg">
+                    <div className="font-semibold">{selectedTutor.name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedTutor.subject}</div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        setSelectedTutor(null);
+                        setEmail('');
+                        setPassword('');
+                      }}
+                    >
+                      ← Change tutor
+                    </Button>
+                  </div>
+                )}
+
+                {userRole !== 'tutor' && !isLoginMode && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label htmlFor="firstName" className="text-sm font-medium text-muted-foreground">
+                        First name
+                      </label>
+                      <Input
+                        id="firstName"
+                        placeholder="Ada"
+                        value={firstName}
+                        onChange={(event) => setFirstName(event.target.value)}
+                        autoComplete="given-name"
+                        disabled={authLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="lastName" className="text-sm font-medium text-muted-foreground">
+                        Last name
+                      </label>
+                      <Input
+                        id="lastName"
+                        placeholder="Lovelace"
+                        value={lastName}
+                        onChange={(event) => setLastName(event.target.value)}
+                        autoComplete="family-name"
+                        disabled={authLoading}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {userRole !== 'tutor' && (
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
+                      Email
+                    </label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="ada@example.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      autoComplete="email"
+                      disabled={authLoading || userRole === 'tutor'}
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={userRole === 'tutor' ? 'Enter tutor password' : '••••••••'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete={isLoginMode ? "current-password" : "new-password"}
+                    disabled={authLoading}
+                  />
+                </div>
+
+                {authError && (
+                  <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                    {authError}
+                  </div>
+                )}
+
+                <Button type="submit" className="w-full" disabled={authLoading}>
+                  {authLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isLoginMode ? 'Signing in...' : 'Creating account...'}
+                    </>
+                  ) : (
+                    userRole === 'tutor' ? 'Sign In as Tutor' : (isLoginMode ? 'Sign In' : 'Sign Up')
+                  )}
+                </Button>
+
+                {/* Google Sign-in - Only for students */}
+                {userRole !== 'tutor' && (
+                  <>
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleGoogleSignIn('student')}
+                      disabled={authLoading}
+                    >
+                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        />
+                      </svg>
+                      {authLoading ? '...' : 'Google'}
+                    </Button>
+                  </>
+                )}
+
+                {userRole !== 'tutor' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleGuestSignIn('student')}
+                      disabled={authLoading}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      Guest
+                    </Button>
+                  </div>
+                )}
+
+                {userRole !== 'tutor' && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLoginMode(!isLoginMode);
+                        setAuthError('');
+                      }}
+                      className="text-primary hover:underline"
+                      disabled={authLoading}
+                    >
+                      {isLoginMode ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+                    </button>
+                  </div>
+                )}
+              </form>
+            )}
           </CardContent>
         </Card>
       </div>

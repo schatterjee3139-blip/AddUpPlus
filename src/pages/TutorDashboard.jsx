@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { getAllStudentsData, getTutorMaterials, saveTutorMaterial } from '../lib/firestore';
+import { getAllStudentsData, getTutorMaterials, saveTutorMaterial, getUserData, getTutorRequests } from '../lib/firestore';
 
 export const TutorDashboard = () => {
   const { currentUser } = useAuth();
@@ -29,17 +29,61 @@ export const TutorDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [newMaterial, setNewMaterial] = useState({ title: '', description: '', type: 'worksheet', content: '' });
+  const [tutorInfo, setTutorInfo] = useState(null);
 
   useEffect(() => {
+    loadTutorInfo();
     loadStudentsAndMaterials();
-  }, []);
+  }, [currentUser]);
+
+  const loadTutorInfo = async () => {
+    if (!currentUser?.uid) return;
+    try {
+      const userData = await getUserData(currentUser.uid);
+      if (userData?.tutorInfo) {
+        setTutorInfo(userData.tutorInfo);
+      }
+    } catch (error) {
+      console.error('Error loading tutor info:', error);
+    }
+  };
 
   const loadStudentsAndMaterials = async () => {
     setLoading(true);
     try {
+      // Load tutor info first
+      if (!tutorInfo && currentUser?.uid) {
+        const userData = await getUserData(currentUser.uid);
+        if (userData?.tutorInfo) {
+          setTutorInfo(userData.tutorInfo);
+        }
+      }
+
+      // Get tutor requests to find students who scheduled with this tutor
+      const tutorRequests = await getTutorRequests();
+      const tutorId = tutorInfo?.id || currentUser?.email?.split('@')[0];
+      
+      // Filter requests for this tutor
+      const myTutorRequests = tutorRequests.filter(req => {
+        // Match by tutor ID or tutor name
+        return req.tutorId === tutorId || 
+               req.tutorName === tutorInfo?.name ||
+               (tutorInfo?.name && req.tutorName?.includes(tutorInfo.name.split(' ')[0]));
+      });
+
+      // Get unique student emails from requests
+      const studentEmails = [...new Set(myTutorRequests.map(req => req.studentEmail).filter(Boolean))];
+      
       // Load all students' data
-      const studentsData = await getAllStudentsData();
-      setStudents(studentsData);
+      const allStudentsData = await getAllStudentsData();
+      
+      // Filter to only students who scheduled with this tutor
+      const myStudents = allStudentsData.filter(student => 
+        studentEmails.includes(student.profile?.email) || 
+        studentEmails.includes(student.id)
+      );
+
+      setStudents(myStudents);
 
       // Load tutor materials
       const tutorMaterials = await getTutorMaterials(currentUser?.uid);
@@ -109,10 +153,10 @@ export const TutorDashboard = () => {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <GraduationCap className="h-8 w-8 text-primary" />
-            Tutor Dashboard
+            {tutorInfo?.name ? `${tutorInfo.name}'s Dashboard` : 'Tutor Dashboard'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your students and teaching materials
+            {tutorInfo?.subject || 'Manage your students and teaching materials'}
           </p>
         </div>
         <Button onClick={() => setShowMaterialForm(!showMaterialForm)}>
