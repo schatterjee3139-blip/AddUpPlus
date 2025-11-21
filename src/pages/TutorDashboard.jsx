@@ -33,8 +33,13 @@ export const TutorDashboard = () => {
 
   useEffect(() => {
     loadTutorInfo();
-    loadStudentsAndMaterials();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (tutorInfo || currentUser) {
+      loadStudentsAndMaterials();
+    }
+  }, [tutorInfo, currentUser]);
 
   const loadTutorInfo = async () => {
     if (!currentUser?.uid) return;
@@ -51,24 +56,26 @@ export const TutorDashboard = () => {
   const loadStudentsAndMaterials = async () => {
     setLoading(true);
     try {
-      // Load tutor info first
-      if (!tutorInfo && currentUser?.uid) {
+      // Ensure tutor info is loaded
+      let currentTutorInfo = tutorInfo;
+      if (!currentTutorInfo && currentUser?.uid) {
         const userData = await getUserData(currentUser.uid);
         if (userData?.tutorInfo) {
-          setTutorInfo(userData.tutorInfo);
+          currentTutorInfo = userData.tutorInfo;
+          setTutorInfo(currentTutorInfo);
         }
       }
 
       // Get tutor requests to find students who scheduled with this tutor
       const tutorRequests = await getTutorRequests();
-      const tutorId = tutorInfo?.id || currentUser?.email?.split('@')[0];
+      const tutorId = currentTutorInfo?.id || currentUser?.email?.split('@')[0];
       
       // Filter requests for this tutor
       const myTutorRequests = tutorRequests.filter(req => {
         // Match by tutor ID or tutor name
         return req.tutorId === tutorId || 
-               req.tutorName === tutorInfo?.name ||
-               (tutorInfo?.name && req.tutorName?.includes(tutorInfo.name.split(' ')[0]));
+               req.tutorName === currentTutorInfo?.name ||
+               (currentTutorInfo?.name && req.tutorName?.includes(currentTutorInfo.name.split(' ')[0]));
       });
 
       // Get unique student emails from requests
