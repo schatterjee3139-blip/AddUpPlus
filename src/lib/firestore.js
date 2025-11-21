@@ -869,3 +869,106 @@ export const deleteTeacherProfile = async (userId, teacherId) => {
   }
 };
 
+// Tutor-specific functions
+
+/**
+ * Get all students' data (for tutors)
+ * Note: This requires proper Firestore security rules to allow tutors to read student data
+ */
+export const getAllStudentsData = async () => {
+  try {
+    const usersRef = collection(db, 'users');
+    const querySnapshot = await getDocs(usersRef);
+    quotaUsage.reads += querySnapshot.size;
+    
+    const students = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Only include users who are not tutors
+      if (!data.role || data.role !== 'tutor') {
+        students.push({
+          id: doc.id,
+          ...data,
+        });
+      }
+    });
+    
+    return students;
+  } catch (error) {
+    console.error('Error getting all students data:', error);
+    // Return empty array if permission denied (for development)
+    if (error.code === 'permission-denied') {
+      console.warn('Permission denied: Tutors need read access to users collection');
+      return [];
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get tutor materials
+ */
+export const getTutorMaterials = async (tutorId) => {
+  if (!tutorId) return [];
+  try {
+    const userRef = getUserDocRef(tutorId);
+    const userSnap = await getDoc(userRef);
+    quotaUsage.reads++;
+    
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      return userData.tutorMaterials || [];
+    }
+    return [];
+  } catch (error) {
+    console.error('Error getting tutor materials:', error);
+    return [];
+  }
+};
+
+/**
+ * Save tutor material
+ */
+export const saveTutorMaterial = async (tutorId, material) => {
+  if (!tutorId) return;
+  try {
+    const userRef = getUserDocRef(tutorId);
+    const userSnap = await getDoc(userRef);
+    quotaUsage.reads++;
+    
+    let tutorMaterials = [];
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      tutorMaterials = userData.tutorMaterials || [];
+    }
+    
+    // Add new material
+    tutorMaterials.push({
+      ...material,
+      id: `material_${Date.now()}`,
+    });
+    
+    await updateUserData(tutorId, {
+      tutorMaterials,
+    }, true);
+  } catch (error) {
+    console.error('Error saving tutor material:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update user role in Firestore
+ */
+export const updateUserRole = async (userId, role) => {
+  if (!userId || !role) return;
+  try {
+    await updateUserData(userId, {
+      role: role, // 'tutor' or 'student'
+    }, true);
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    throw error;
+  }
+};
+

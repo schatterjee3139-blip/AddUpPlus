@@ -24,10 +24,12 @@ import { StudyPlanView } from './pages/StudyPlanView';
 import TeacherProfileView from './pages/TeacherProfileView';
 import { VideoCallView } from './pages/VideoCallView';
 import { LoginView } from './pages/LoginView';
+import { TutorDashboard } from './pages/TutorDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/Card';
 import { Input } from './components/ui/Input';
 import { useAuth } from './contexts/AuthContext';
 import { Loader2, GraduationCap, User } from 'lucide-react';
+import { getUserData, updateUserRole } from './lib/firestore';
 
 const AppContentInner = () => {
   const { currentUser, login, signup, signInWithGoogle, logout, signInAsGuest } = useAuth();
@@ -59,6 +61,54 @@ const AppContentInner = () => {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [userRole, setUserRole] = useState(null); // 'tutor' or 'student'
+  const [roleLoading, setRoleLoading] = useState(true);
+
+  // Load user role from Firestore or sessionStorage
+  useEffect(() => {
+    const loadUserRole = async () => {
+      if (!currentUser || currentUser.isGuest) {
+        // Check sessionStorage for guest users
+        const sessionRole = sessionStorage.getItem('isTutor');
+        if (sessionRole === 'true') {
+          setUserRole('tutor');
+        } else {
+          setUserRole('student');
+        }
+        setRoleLoading(false);
+        return;
+      }
+
+      try {
+        // First check sessionStorage (faster)
+        const sessionRole = sessionStorage.getItem('isTutor');
+        if (sessionRole === 'true') {
+          setUserRole('tutor');
+        } else if (sessionRole === 'false') {
+          setUserRole('student');
+        }
+
+        // Then load from Firestore (persistent)
+        const userData = await getUserData(currentUser.uid);
+        if (userData?.role) {
+          setUserRole(userData.role);
+          // Sync sessionStorage
+          sessionStorage.setItem('isTutor', userData.role === 'tutor' ? 'true' : 'false');
+        } else if (!sessionRole) {
+          // Default to student if no role set
+          setUserRole('student');
+        }
+      } catch (error) {
+        console.error('Error loading user role:', error);
+        // Fallback to sessionStorage
+        const sessionRole = sessionStorage.getItem('isTutor');
+        setUserRole(sessionRole === 'true' ? 'tutor' : 'student');
+      } finally {
+        setRoleLoading(false);
+      }
+    };
+
+    loadUserRole();
+  }, [currentUser]);
 
   // Command Palette (⌘K) listener
   useEffect(() => {
@@ -121,7 +171,11 @@ const AppContentInner = () => {
 
     try {
       if (isLoginMode) {
-        await login(trimmedEmail, trimmedPassword);
+        const userCredential = await login(trimmedEmail, trimmedPassword);
+        // Save role to Firestore after login
+        if (role && userCredential?.user?.uid) {
+          await updateUserRole(userCredential.user.uid, role);
+        }
       } else {
         const trimmedFirst = firstName.trim();
         const trimmedLast = lastName.trim();
@@ -130,7 +184,11 @@ const AppContentInner = () => {
           setAuthLoading(false);
           return;
         }
-        await signup(trimmedEmail, trimmedPassword, trimmedFirst, trimmedLast);
+        const userCredential = await signup(trimmedEmail, trimmedPassword, trimmedFirst, trimmedLast);
+        // Save role to Firestore after signup
+        if (role && userCredential?.user?.uid) {
+          await updateUserRole(userCredential.user.uid, role);
+        }
       }
     } catch (error) {
       setAuthError(error.message || 'Authentication failed. Please try again.');
@@ -155,11 +213,15 @@ const AppContentInner = () => {
     setAuthError('');
     setAuthLoading(true);
     try {
-      await signInWithGoogle();
+      const userCredential = await signInWithGoogle();
       // Store role in sessionStorage after successful sign-in
       if (role) {
         sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
         setUserRole(role);
+        // Save role to Firestore
+        if (userCredential?.user?.uid) {
+          await updateUserRole(userCredential.user.uid, role);
+        }
       }
     } catch (error) {
       setAuthError(error.message || 'Google sign-in failed. Please try again.');
@@ -186,6 +248,11 @@ const AppContentInner = () => {
   };
 
   const getBreadcrumbs = () => {
+    // Tutor dashboard breadcrumbs
+    if (userRole === 'tutor' && (currentPage === 'today' || !currentPage)) {
+      return ['Home', 'Tutor Dashboard'];
+    }
+    
     switch (currentPage) {
       case 'today':
         return ['Home', 'Today'];
@@ -223,6 +290,11 @@ const AppContentInner = () => {
   };
 
   const renderPage = () => {
+    // If user is a tutor, show tutor dashboard for 'today' page
+    if (userRole === 'tutor' && (currentPage === 'today' || !currentPage)) {
+      return <TutorDashboard />;
+    }
+
     // Extract base page name (handle query params like "video?tutor=true")
     const basePage = currentPage?.split('?')[0] || currentPage;
     
@@ -516,6 +588,18 @@ const AppContentInner = () => {
             </form>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // Show loading while role is being determined
+  if (roleLoading && currentUser && !currentUser.isGuest) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
