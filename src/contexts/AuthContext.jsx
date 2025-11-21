@@ -17,12 +17,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for tutor user in sessionStorage first (no Firebase)
+    const tutorUserStr = sessionStorage.getItem('tutorUser');
+    if (tutorUserStr) {
+      try {
+        const tutorUser = JSON.parse(tutorUserStr);
+        setCurrentUser(tutorUser);
+        setLoading(false);
+        return;
+      } catch (e) {
+        console.error('Error parsing tutor user:', e);
+      }
+    }
+
+    // For regular users, use Firebase auth
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Listen for tutor login events
+    const handleTutorLogin = (event) => {
+      setCurrentUser(event.detail);
+    };
+    window.addEventListener('tutor-login', handleTutorLogin);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('tutor-login', handleTutorLogin);
+    };
   }, []);
 
   const signup = async (email, password, firstName, lastName) => {
@@ -43,6 +66,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    // Check if current user is a tutor (no Firebase)
+    if (currentUser?.isTutor) {
+      setCurrentUser(null);
+      sessionStorage.removeItem('tutorUser');
+      sessionStorage.removeItem('isTutor');
+      return;
+    }
+    
     // Check if current user is a guest
     if (currentUser?.isGuest) {
       // For guest users, just clear the state

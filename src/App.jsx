@@ -181,36 +181,48 @@ const AppContentInner = () => {
 
     try {
       if (role === 'tutor') {
-        // For tutors, try to login first, if account doesn't exist, create it
-        let userCredential;
-        try {
-          userCredential = await login(trimmedEmail, trimmedPassword);
-        } catch (loginError) {
-          // If account doesn't exist, create it
-          if (loginError.code === 'auth/user-not-found' && selectedTutor) {
-            // Create tutor account
-            const nameParts = selectedTutor.name.split(' ');
-            const firstName = nameParts[0] || 'Tutor';
-            const lastName = nameParts.slice(1).join(' ') || 'User';
-            userCredential = await signup(trimmedEmail, trimmedPassword, firstName, lastName);
-          } else {
-            throw loginError;
-          }
+        // For tutors, use simple password check (no Firebase)
+        if (trimmedPassword !== 'tutor') {
+          setAuthError('Invalid tutor password. Please enter "tutor".');
+          setAuthLoading(false);
+          return;
         }
         
-        // Save role and tutor info to Firestore after login/signup
-        if (userCredential?.user?.uid && selectedTutor) {
-          await updateUserRole(userCredential.user.uid, role);
-          // Store tutor info
-          const { updateUserData } = await import('./lib/firestore');
-          await updateUserData(userCredential.user.uid, {
-            tutorInfo: {
-              id: selectedTutor.id,
-              name: selectedTutor.name,
-              subject: selectedTutor.subject,
-            },
-          }, true);
+        if (!selectedTutor) {
+          setAuthError('Please select a tutor account.');
+          setAuthLoading(false);
+          return;
         }
+
+        // Create a simple tutor user object (no Firebase auth)
+        const tutorUser = {
+          uid: `tutor_${selectedTutor.id}`,
+          email: selectedTutor.email,
+          displayName: selectedTutor.name,
+          photoURL: null,
+          isTutor: true,
+          tutorInfo: {
+            id: selectedTutor.id,
+            name: selectedTutor.name,
+            subject: selectedTutor.subject,
+          },
+        };
+
+        // Store tutor info in sessionStorage
+        sessionStorage.setItem('tutorUser', JSON.stringify(tutorUser));
+        sessionStorage.setItem('isTutor', 'true');
+        setUserRole('tutor');
+        
+        // Set the user in auth context (we'll need to update AuthContext to handle this)
+        // For now, we'll use a custom approach
+        window.dispatchEvent(new CustomEvent('tutor-login', { detail: tutorUser }));
+        
+        // Clear form
+        setPassword('');
+        setSelectedTutor(null);
+        setShowTutorSelection(false);
+        setAuthLoading(false);
+        return;
       } else if (isLoginMode) {
         // For students, login if in login mode
         const userCredential = await login(trimmedEmail, trimmedPassword);

@@ -42,6 +42,13 @@ export const TutorDashboard = () => {
   }, [tutorInfo, currentUser]);
 
   const loadTutorInfo = async () => {
+    // For tutors, get info from currentUser (no Firebase needed)
+    if (currentUser?.isTutor && currentUser?.tutorInfo) {
+      setTutorInfo(currentUser.tutorInfo);
+      return;
+    }
+    
+    // Fallback to Firestore for regular users (shouldn't happen for tutors)
     if (!currentUser?.uid) return;
     try {
       const userData = await getUserData(currentUser.uid);
@@ -56,13 +63,18 @@ export const TutorDashboard = () => {
   const loadStudentsAndMaterials = async () => {
     setLoading(true);
     try {
-      // Ensure tutor info is loaded
+      // Ensure tutor info is loaded (from currentUser for tutors, or Firestore for others)
       let currentTutorInfo = tutorInfo;
-      if (!currentTutorInfo && currentUser?.uid) {
-        const userData = await getUserData(currentUser.uid);
-        if (userData?.tutorInfo) {
-          currentTutorInfo = userData.tutorInfo;
+      if (!currentTutorInfo) {
+        if (currentUser?.isTutor && currentUser?.tutorInfo) {
+          currentTutorInfo = currentUser.tutorInfo;
           setTutorInfo(currentTutorInfo);
+        } else if (currentUser?.uid) {
+          const userData = await getUserData(currentUser.uid);
+          if (userData?.tutorInfo) {
+            currentTutorInfo = userData.tutorInfo;
+            setTutorInfo(currentTutorInfo);
+          }
         }
       }
 
@@ -92,9 +104,21 @@ export const TutorDashboard = () => {
 
       setStudents(myStudents);
 
-      // Load tutor materials
-      const tutorMaterials = await getTutorMaterials(currentUser?.uid);
-      setMaterials(tutorMaterials || []);
+      // Load tutor materials (only if we have a uid, skip for non-Firebase tutors)
+      if (currentUser?.uid && !currentUser?.isTutor) {
+        const tutorMaterials = await getTutorMaterials(currentUser.uid);
+        setMaterials(tutorMaterials || []);
+      } else {
+        // For non-Firebase tutors, use localStorage for materials
+        const storedMaterials = localStorage.getItem(`tutor_materials_${currentTutorInfo?.id}`);
+        if (storedMaterials) {
+          try {
+            setMaterials(JSON.parse(storedMaterials));
+          } catch (e) {
+            setMaterials([]);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error loading tutor data:', error);
     } finally {
@@ -106,10 +130,23 @@ export const TutorDashboard = () => {
     if (!newMaterial.title.trim()) return;
     
     try {
-      await saveTutorMaterial(currentUser?.uid, {
-        ...newMaterial,
-        createdAt: new Date().toISOString(),
-      });
+      if (currentUser?.uid && !currentUser?.isTutor) {
+        // Use Firestore for regular users
+        await saveTutorMaterial(currentUser.uid, {
+          ...newMaterial,
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        // Use localStorage for non-Firebase tutors
+        const newMaterialWithId = {
+          ...newMaterial,
+          id: `material_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        };
+        const updatedMaterials = [...materials, newMaterialWithId];
+        localStorage.setItem(`tutor_materials_${tutorInfo?.id}`, JSON.stringify(updatedMaterials));
+        setMaterials(updatedMaterials);
+      }
       await loadStudentsAndMaterials();
       setShowMaterialForm(false);
       setNewMaterial({ title: '', description: '', type: 'worksheet', content: '' });
