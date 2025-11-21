@@ -28,7 +28,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
-const navItems = [
+const studentNavItems = [
   { name: 'Today', icon: LayoutDashboard, page: 'today' },
   { name: 'Courses', icon: BookOpen, page: 'courses' },
   { name: 'Workspace', icon: Briefcase, page: 'workspace' },
@@ -40,6 +40,11 @@ const navItems = [
   { name: 'Teacher Profiles', icon: Brain, page: 'teacher-profiles' },
   { name: 'Tutors', icon: GraduationCap, page: 'tutors' },
   { name: 'Analytics', icon: BarChart3, page: 'analytics' },
+  { name: 'Settings', icon: Settings, page: 'settings' },
+];
+
+const tutorNavItems = [
+  { name: 'Tutor Dashboard', icon: LayoutDashboard, page: 'today' },
   { name: 'Settings', icon: Settings, page: 'settings' },
 ];
 
@@ -96,9 +101,13 @@ export const LeftSidebar = ({
   isCollapsed = false,
   onCollapseChange,
   userProfile = null,
+  userRole = null, // 'tutor' or 'student'
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { logout } = useAuth();
+
+  // Filter nav items based on user role
+  const navItems = userRole === 'tutor' ? tutorNavItems : studentNavItems;
 
   const displayName = [
     userProfile?.firstName?.trim(),

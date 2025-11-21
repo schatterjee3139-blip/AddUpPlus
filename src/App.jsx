@@ -617,6 +617,7 @@ const AppContentInner = () => {
           email: currentUser.email || '',
           photoURL: currentUser.photoURL || null,
         } : null}
+        userRole={userRole}
       />
 
       <main 
