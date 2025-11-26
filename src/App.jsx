@@ -25,6 +25,7 @@ import TeacherProfileView from './pages/TeacherProfileView';
 import { VideoCallView } from './pages/VideoCallView';
 import { LoginView } from './pages/LoginView';
 import { TutorDashboard } from './pages/TutorDashboard';
+import { PhysicsMechanicsView } from './pages/PhysicsMechanicsView';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/Card';
 import { Input } from './components/ui/Input';
 import { useAuth } from './contexts/AuthContext';
@@ -404,6 +405,9 @@ const AppContentInner = () => {
         );
       case 'settings':
         return <SettingsView />;
+      case 'physics-mechanics':
+      case 'physics-sim':
+        return <PhysicsMechanicsView onNavigate={setCurrentPage} />;
       default:
         return <Dashboard onNavigate={setCurrentPage} />;
     }

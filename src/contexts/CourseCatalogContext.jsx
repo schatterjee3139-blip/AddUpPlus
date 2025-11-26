@@ -165,6 +165,14 @@ export const COURSE_CATALOG = [
     color: '#0ea5e9',
     defaultView: 'concepts',
   },
+  {
+    id: 'physics-mechanics',
+    name: 'Mechanics of Physics',
+    summary: 'Explore fundamental mechanics through interactive 3D simulations including orbital motion, harmonic motion, and projectile motion.',
+    focus: 'Visualize and understand physical principles through hands-on 3D interactive models.',
+    color: '#a855f7',
+    defaultView: 'physics-sim',
+  },
 ];
 
 const CourseCatalogContext = createContext(null);
