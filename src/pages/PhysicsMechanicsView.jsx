@@ -8,6 +8,8 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
   const sceneRef = useRef(null);
   const [currentModelIndex, setCurrentModelIndex] = useState(0);
   const [simulationSpeed, setSimulationSpeed] = useState(1.0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const models = [
     {
@@ -28,24 +30,45 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
   ];
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      console.log('PhysicsMechanicsView: containerRef.current is null');
+      return;
+    }
+
+    console.log('PhysicsMechanicsView: Initializing 3D scene...');
 
     // Load Three.js dynamically
     const loadThreeJS = async () => {
       if (window.THREE) {
+        console.log('PhysicsMechanicsView: Three.js already loaded');
         initializeScene();
         return;
       }
 
+      console.log('PhysicsMechanicsView: Loading Three.js from CDN...');
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-      script.onload = initializeScene;
+      script.onload = () => {
+        console.log('PhysicsMechanicsView: Three.js loaded successfully');
+        initializeScene();
+      };
+      script.onerror = (error) => {
+        console.error('PhysicsMechanicsView: Failed to load Three.js', error);
+      };
       document.head.appendChild(script);
     };
 
     const initializeScene = () => {
-      if (!window.THREE || !containerRef.current) return;
+      if (!window.THREE) {
+        console.error('PhysicsMechanicsView: THREE is not available');
+        return;
+      }
+      if (!containerRef.current) {
+        console.error('PhysicsMechanicsView: containerRef.current is null in initializeScene');
+        return;
+      }
 
+      console.log('PhysicsMechanicsView: Initializing Three.js scene...');
       const THREE = window.THREE;
       
       // Make THREE available globally for the useEffect that depends on currentModelIndex
@@ -180,7 +203,7 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
       }
 
       function animateOrbital(delta) {
-        const scaledDelta = delta * simulationSpeed;
+        const scaledDelta = delta * simulationSpeedRef;
         orbitPivot.rotation.z += ORBIT_SPEED * scaledDelta;
         planet.rotation.y += 0.5 * scaledDelta;
         sun.scale.setScalar(1 + Math.sin(clock.getElapsedTime() * 0.5) * 0.1);
@@ -212,7 +235,7 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
       }
 
       function animateSHM(delta) {
-        const time = clock.getElapsedTime() * simulationSpeed;
+        const time = clock.getElapsedTime() * simulationSpeedRef;
         const yPosition = AMPLITUDE * Math.cos(ANGULAR_FREQ * time);
         mass.position.y = yPosition;
         const springHeight = support.position.y - mass.position.y - 0.75;
@@ -265,7 +288,7 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
       }
 
       function animateProjectile(delta) {
-        const scaledDelta = delta * simulationSpeed;
+        const scaledDelta = delta * simulationSpeedRef;
         if (!isLaunched) return;
 
         timeSinceLaunch += scaledDelta;
@@ -321,6 +344,7 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
 
         setCurrentModelIndex((prevIndex) => {
           const newIndex = (prevIndex + direction + models.length) % models.length;
+          currentModelIndexRef = newIndex; // Update ref
           clock.start();
           controls.resetRotation();
 
@@ -338,9 +362,9 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
         currentAnimationId = requestAnimationFrame(animate);
         const delta = clock.getDelta();
 
-        if (currentModelIndex === 0) animateOrbital(delta);
-        else if (currentModelIndex === 1) animateSHM(delta);
-        else if (currentModelIndex === 2) animateProjectile(delta);
+        if (currentModelIndexRef === 0) animateOrbital(delta);
+        else if (currentModelIndexRef === 1) animateSHM(delta);
+        else if (currentModelIndexRef === 2) animateProjectile(delta);
 
         renderer.render(scene, camera);
       }
@@ -349,6 +373,8 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
       sceneRef.current = {
         switchModel,
         resetCamera: () => controls.resetRotation(),
+        setSimulationSpeed: (speed) => { simulationSpeedRef = speed; },
+        setCurrentModelIndex: (index) => { currentModelIndexRef = index; },
         cleanup: () => {
           if (currentAnimationId) {
             cancelAnimationFrame(currentAnimationId);
@@ -374,9 +400,14 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
       };
 
       // Initialize first model
+      currentModelIndexRef = 0;
       initOrbital();
       clock.start();
       animate();
+      
+      setIsLoading(false);
+      setError(null);
+      console.log('PhysicsMechanicsView: Scene initialized successfully');
 
       // Handle resize
       const handleResize = () => {
@@ -402,18 +433,23 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
       };
     };
 
-    loadThreeJS();
+    loadThreeJS().catch((err) => {
+      console.error('PhysicsMechanicsView: Error loading Three.js', err);
+      setError('Failed to load 3D graphics library. Please refresh the page.');
+      setIsLoading(false);
+    });
   }, []); // Only run once on mount
 
   // Update simulation speed when it changes
   useEffect(() => {
-    // Speed is already used in the animation functions via closure
-    // No need to do anything here
+    if (sceneRef.current && sceneRef.current.setSimulationSpeed) {
+      sceneRef.current.setSimulationSpeed(simulationSpeed);
+    }
   }, [simulationSpeed]);
 
-  // Handle model switching from UI
+  // Handle model switching from UI (when currentModelIndex changes from button clicks)
   useEffect(() => {
-    if (!sceneRef.current || !window.THREE) return;
+    if (!sceneRef.current || !window.THREE || currentModelIndex === 0) return; // Skip initial render
 
     const THREE = window.THREE;
     const { scene, clock, initOrbital, initSHM, initProjectile, animate, resetCamera } = sceneRef.current;
@@ -440,19 +476,20 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
     else if (currentModelIndex === 1) initSHM();
     else if (currentModelIndex === 2) initProjectile();
 
+    // Update ref for animation loop
+    if (sceneRef.current.setCurrentModelIndex) {
+      sceneRef.current.setCurrentModelIndex(currentModelIndex);
+    }
+
     animate();
   }, [currentModelIndex]);
 
   const handlePrevious = () => {
-    if (sceneRef.current) {
-      sceneRef.current.switchModel(-1);
-    }
+    setCurrentModelIndex((prev) => (prev - 1 + models.length) % models.length);
   };
 
   const handleNext = () => {
-    if (sceneRef.current) {
-      sceneRef.current.switchModel(1);
-    }
+    setCurrentModelIndex((prev) => (prev + 1) % models.length);
   };
 
   const handleReset = () => {
@@ -474,6 +511,9 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
           <div>
             <h1 className="text-2xl font-semibold">Mechanics of Physics</h1>
             <p className="text-sm text-muted-foreground">Interactive 3D Physics Simulations</p>
+            {error && (
+              <p className="text-sm text-destructive mt-2">Error: {error}</p>
+            )}
           </div>
         </div>
       </div>
@@ -499,11 +539,40 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
         </CardHeader>
         <CardContent>
           <div className="relative">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-10">
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p>Loading 3D graphics...</p>
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-red-900/50 rounded-lg z-10">
+                <div className="text-white text-center p-4">
+                  <p className="text-red-200 mb-2">{error}</p>
+                  <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+                    Reload Page
+                  </Button>
+                </div>
+              </div>
+            )}
             <div
               ref={containerRef}
               className="w-full bg-black rounded-lg overflow-hidden"
-              style={{ height: '600px', minHeight: '600px' }}
-            />
+              style={{ 
+                height: '600px', 
+                minHeight: '600px', 
+                position: 'relative',
+                display: 'block'
+              }}
+            >
+              {!isLoading && !error && containerRef.current && containerRef.current.children.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-white">
+                  <p>Canvas container ready. Initializing 3D scene...</p>
+                </div>
+              )}
+            </div>
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-background/90 backdrop-blur-sm p-4 rounded-lg border shadow-lg flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <label htmlFor="speed-slider" className="text-sm font-medium whitespace-nowrap">
