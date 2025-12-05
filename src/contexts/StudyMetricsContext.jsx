@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
-import { subscribeToUserData, updateStudyMetrics, initializeUserData } from '../lib/firestore';
+import { subscribeToUserData, updateStudyMetrics, initializeUserData } from '../lib/localStorage';
 import { calculateTotalXP, getXPProgress, checkBadges } from '../lib/gamification';
 
 const defaultMetrics = {
@@ -68,7 +68,7 @@ export const StudyMetricsProvider = ({ children }) => {
 
         // Load data directly first (fallback if subscription doesn't fire immediately)
         try {
-          const { getUserData } = await import('../lib/firestore');
+          const { getUserData } = await import('../lib/localStorage');
           const userData = await getUserData(currentUser.uid);
           if (userData && userData.studyMetrics) {
             console.log('📥 Direct load from Firebase:', userData.studyMetrics);

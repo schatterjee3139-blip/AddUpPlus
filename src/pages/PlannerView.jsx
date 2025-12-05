@@ -5,7 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToUserData, updatePlannerData, initializeUserData } from '../lib/firestore';
+import { subscribeToUserData, updatePlannerData, initializeUserData } from '../lib/localStorage';
 
 const STORAGE_KEY = 'study-os-planner-events';
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

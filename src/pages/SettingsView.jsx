@@ -26,7 +26,7 @@ import {
 import { updateProfile } from 'firebase/auth';
 import { auth, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { updateUserData, getQuotaUsage } from '../lib/firestore';
+import { updateUserData, getQuotaUsage } from '../lib/localStorage';
 
 export const SettingsView = () => {
   const { theme, setTheme, accentColor, setAccentColor, fontSize, setFontSize, fontFamily, setFontFamily } = useTheme();

@@ -8,7 +8,7 @@ import { Calendar, Sparkles, Loader2, CheckCircle, AlertCircle, Clock, BookOpen 
 import { generateStudyPlan } from '../lib/aiHelpers';
 import { chatCompletionStream } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { updatePlannerData } from '../lib/firestore';
+import { updatePlannerData } from '../lib/localStorage';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const StudyPlanView = () => {
@@ -139,7 +139,7 @@ Return ONLY valid JSON array, no markdown, no code blocks, no explanations. Exam
 
     try {
       // Get existing planner data
-      const { getUserData } = await import('../lib/firestore');
+      const { getUserData } = await import('../lib/localStorage');
       const userData = await getUserData(currentUser.uid);
       const existingEvents = userData?.planner?.eventsByDate || {};
 

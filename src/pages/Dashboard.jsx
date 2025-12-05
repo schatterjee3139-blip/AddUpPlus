@@ -25,7 +25,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/Avatar';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
-import { subscribeToUserData, updateUserData, initializeUserData } from '../lib/firestore';
+import { subscribeToUserData, updateUserData, initializeUserData } from '../lib/localStorage';
 
 // Local storage functions for scheduled appointments (no Firebase)
 const SCHEDULED_APPOINTMENTS_KEY = 'scheduledAppointments';

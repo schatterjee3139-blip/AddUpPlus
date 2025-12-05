@@ -22,7 +22,7 @@ import { stripMarkdown } from '../../lib/utils';
 import { DesmosCalculator } from '../DesmosCalculator';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { subscribeToUserData, updateAIChatData, initializeUserData } from '../../lib/firestore';
+import { subscribeToUserData, updateAIChatData, initializeUserData } from '../../lib/localStorage';
 import { processFile, formatMessageWithFile } from '../../lib/fileProcessing';
 
 export const RightSidebar = () => {

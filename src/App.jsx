@@ -30,7 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Input } from './components/ui/Input';
 import { useAuth } from './contexts/AuthContext';
 import { Loader2, GraduationCap, User } from 'lucide-react';
-import { getUserData, updateUserRole } from './lib/firestore';
+import { getUserData, updateUserRole } from './lib/localStorage';
 
 const AppContentInner = () => {
   const { currentUser, login, signup, signInWithGoogle, logout, signInAsGuest } = useAuth();
@@ -90,8 +90,10 @@ const AppContentInner = () => {
           setUserRole('student');
         }
 
-        // Then load from Firestore (persistent)
-        const userData = await getUserData(currentUser.uid);
+        // Then load from localStorage (persistent)
+        // For Google sign-in users, check if they have Firebase uid
+        const userId = currentUser.uid;
+        const userData = await getUserData(userId);
         if (userData?.role) {
           setUserRole(userData.role);
           // Sync sessionStorage

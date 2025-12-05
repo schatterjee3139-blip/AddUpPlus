@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { getAllStudentsData, getTutorMaterials, saveTutorMaterial, getUserData, getTutorRequests } from '../lib/firestore';
+import { getAllStudentsData, getTutorMaterials, saveTutorMaterial, getUserData, getTutorRequests, getStudentsScheduledWithTutor } from '../lib/localStorage';
 
 export const TutorDashboard = () => {
   const { currentUser } = useAuth();

@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
-import { subscribeToUserData, updateUserData, initializeUserData } from '../lib/firestore';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { subscribeToUserData, updateUserData, initializeUserData, getTutorRequests } from '../lib/localStorage';
 
 const NotificationsContext = createContext(null);
 
@@ -83,41 +81,26 @@ export const NotificationsProvider = ({ children }) => {
     if (!currentUser || currentUser.isGuest) return [];
 
     try {
-      // Check for tutor requests that have responses
-      const tutorRequestsRef = collection(db, 'tutorRequests');
-      const q = query(tutorRequestsRef, where('studentEmail', '==', currentUser.email));
+      // Check for tutor requests that have responses (from localStorage)
+      const tutorRequests = await getTutorRequests();
+      const messages = [];
       
-      // Use getDocs instead of onSnapshot for one-time read (more efficient)
-      return new Promise(async (resolve) => {
-        try {
-          const snapshot = await getDocs(q);
-          const messages = [];
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.status === 'accepted' || data.response) {
-              messages.push({
-                id: `tutor-${doc.id}-${Date.now()}`,
-                type: 'tutor',
-                title: 'Tutor Response',
-                message: data.response || `Your tutor request for ${data.tutorName} has been accepted!`,
-                tutorId: data.tutorId,
-                tutorName: data.tutorName,
-                createdAt: data.updatedAt || data.createdAt || new Date().toISOString(),
-                read: false,
-              });
-            }
+      tutorRequests.forEach((request) => {
+        if (request.studentEmail === currentUser.email && (request.status === 'accepted' || request.response)) {
+          messages.push({
+            id: `tutor-${request.id}-${Date.now()}`,
+            type: 'tutor',
+            title: 'Tutor Response',
+            message: request.response || `Your tutor request for ${request.tutorName} has been accepted!`,
+            tutorId: request.tutorId,
+            tutorName: request.tutorName,
+            createdAt: request.updatedAt || request.createdAt || new Date().toISOString(),
+            read: false,
           });
-          resolve(messages);
-        } catch (error) {
-          // Handle quota exceeded gracefully
-          if (error.code === 'resource-exhausted') {
-            console.warn('⚠️ Firestore quota exceeded. Skipping tutor messages check.');
-          } else {
-            console.error('Error checking tutor messages:', error);
-          }
-          resolve([]);
         }
       });
+      
+      return messages;
     } catch (error) {
       console.error('Error checking tutor messages:', error);
       return [];

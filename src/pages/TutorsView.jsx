@@ -4,7 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { useAuth } from '../contexts/AuthContext';
-import { submitTutorRequest, submitTutorReview, subscribeToTutorReviews, getTutorReviews } from '../lib/firestore';
+import { submitTutorRequest, submitTutorReview, subscribeToTutorReviews, getTutorReviews } from '../lib/localStorage';
 
 // Local storage functions for scheduled appointments (no Firebase)
 const SCHEDULED_APPOINTMENTS_KEY = 'scheduledAppointments';

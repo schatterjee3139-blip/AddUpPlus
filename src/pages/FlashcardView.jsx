@@ -18,7 +18,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { useStudyMetrics } from '../contexts/StudyMetricsContext.jsx';
 import { chatCompletion } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToUserData, updateFlashcardsData, initializeUserData } from '../lib/firestore';
+import { subscribeToUserData, updateFlashcardsData, initializeUserData } from '../lib/localStorage';
 
 const FlashcardFlip = ({ front, back, isFlipped, onFlip, onExplain }) => {
   return (

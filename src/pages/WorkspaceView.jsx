@@ -12,7 +12,7 @@ import { useCourseCatalog } from '../contexts/CourseCatalogContext.jsx';
 import { chatCompletion, searchYouTubeVideos } from '../lib/api';
 import { stripMarkdown } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToUserData, updateWorkspaceData, initializeUserData } from '../lib/firestore';
+import { subscribeToUserData, updateWorkspaceData, initializeUserData } from '../lib/localStorage';
 import {
   Layers,
   Brain,

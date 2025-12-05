@@ -568,8 +568,20 @@ export const PhysicsMechanicsView = ({ onNavigate }) => {
               }}
             >
               {!isLoading && !error && containerRef.current && containerRef.current.children.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center text-white">
-                  <p>Canvas container ready. Initializing 3D scene...</p>
+                <div className="absolute inset-0 flex items-center justify-center text-white z-20">
+                  <div className="text-center">
+                    <p className="mb-4">Canvas container ready. Initializing 3D scene...</p>
+                    <Button 
+                      onClick={() => {
+                        console.log('Manual re-initialization triggered');
+                        window.location.reload();
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Retry Initialization
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

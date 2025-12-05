@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { chatCompletion, searchYouTubeVideos } from '../lib/api';
 import { stripMarkdown } from '../lib/utils';
 import { useAuth } from './AuthContext';
-import { subscribeToUserData, updateCourseData, initializeUserData } from '../lib/firestore';
+import { subscribeToUserData, updateCourseData, initializeUserData } from '../lib/localStorage';
 
 export const COURSE_CATALOG = [
   {
