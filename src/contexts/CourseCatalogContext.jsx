@@ -413,26 +413,18 @@ export const CourseCatalogProvider = ({ children }) => {
 
       setBlueprintStatus((prev) => ({ ...prev, [courseId]: 'loading' }));
 
-      const prompt = `
-You are an expert instructional designer creating personalized workspace content for the following mathematics course:
-Course Name: ${course.name}
-Course Summary: ${course.summary}
-Primary Focus: ${course.focus}
-Default View: ${course.defaultView}
+      const prompt = `Generate JSON workspace content for: ${course.name}
+Focus: ${course.focus}
+View: ${course.defaultView}
 
-Generate a JSON object with exactly this structure:
+Return ONLY this JSON (no markdown):
 {
-  "topics": ["topic 1", "topic 2", "topic 3"],
-  "toolkit": ["toolkit tip 1", "toolkit tip 2"],
-  "practice": ["practice routine 1", "practice routine 2"]
+  "topics": [3 core topics for this course],
+  "toolkit": [2 tips for ${course.defaultView} workspace],
+  "practice": [2 weekly routine suggestions]
 }
 
-Requirements:
-- "topics": Provide exactly 3 core concepts or topics to master for this course. Be specific and relevant to the course content.
-- "toolkit": Provide exactly 2 practical tips for using the ${course.defaultView} workspace effectively with this course. Make them actionable and specific.
-- "practice": Provide exactly 2 weekly routine suggestions tailored to this course. Make them specific with time commitments and focus areas.
-
-Return ONLY valid JSON, no markdown, no explanations, just the JSON object.`;
+Keep each item concise (1 sentence max).`;
 
       try {
         const response = await chatCompletion(prompt);
@@ -575,24 +567,30 @@ Return ONLY valid JSON, no markdown, no explanations, just the JSON object.`;
       setBlueprintStatus((prev) => ({ ...prev, [courseId]: 'loading' }));
 
       const prompt = `
-You are an expert instructional designer creating an exhaustive self-study course outline for the following advanced mathematics course:
-Course Name: ${course.name}
-Course Summary: ${course.summary}
-Primary Focus: ${course.focus}
+Create a concise course outline for: ${course.name}
 
-Deliver a Markdown-formatted syllabus that includes:
-1. A short inspirational course overview (2 paragraphs) highlighting why the course matters.
-2. A table of prerequisite knowledge and quick-refresh resources.
-3. A 6-8 module roadmap. For each module list:
-   - Module theme and learning objectives
-   - Core concepts and theorems
-   - Signature problem types/projects
-   - Suggested readings or video resources (use generic placeholders, no links needed)
-4. Dedicated practice regimen suggestions (daily/weekly cadence with increasing difficulty).
-5. Capstone project ideas integrating multiple modules.
-6. Reflection prompts and self-assessment checklists.
+Summary: ${course.summary}
+Focus: ${course.focus}
 
-Keep the tone motivating yet rigorous and assume the learner is aiming for competition or university-level mastery.`;
+Format (keep brief - 1-2 sentences per item):
+
+1. Overview: 1 paragraph on importance.
+
+2. Prerequisites: List 3-4 key prerequisites.
+
+3. Modules (6-8 modules): For each:
+   Module X: [Theme]
+   - Objectives: [2-3 key goals]
+   - Concepts: [3-4 core topics]
+   - Problems: [2-3 problem types]
+   
+4. Practice: Weekly routine (2-3 suggestions).
+
+5. Projects: 2-3 capstone ideas.
+
+6. Assessment: 2-3 reflection prompts.
+
+Use clear headers, keep concise.`;
 
       try {
         const response = await chatCompletion(prompt);
@@ -622,7 +620,26 @@ Keep the tone motivating yet rigorous and assume the learner is aiming for compe
     (courseId) => {
       setJoinedCourseIds((prev) => {
         if (prev.includes(courseId)) return prev;
-        return [...prev, courseId];
+        const updated = [...prev, courseId];
+        
+        // Force immediate save for Firebase users when joining a course
+        if (currentUser && !currentUser.isGuest) {
+          // Reset initial load flag to allow save
+          isInitialLoadRef.current = false;
+          // Trigger immediate save
+          updateCourseData(currentUser.uid, {
+            joinedCourseIds: updated,
+            courseBlueprints,
+            courseWorkspaceData,
+            courseYouTubeVideos,
+          }).catch((error) => {
+            if (error.code !== 'resource-exhausted') {
+              console.error('Failed to save course join immediately:', error);
+            }
+          });
+        }
+        
+        return updated;
       });
 
       // Generate workspace data, blueprint, and YouTube videos
@@ -642,7 +659,7 @@ Keep the tone motivating yet rigorous and assume the learner is aiming for compe
         });
       }
     },
-    [courseBlueprints, courseWorkspaceData, courseYouTubeVideos, generateCourseBlueprint, generateCourseWorkspaceData, generateCourseYouTubeVideos]
+    [currentUser, courseBlueprints, courseWorkspaceData, courseYouTubeVideos, generateCourseBlueprint, generateCourseWorkspaceData, generateCourseYouTubeVideos]
   );
 
   const leaveCourse = useCallback((courseId) => {
