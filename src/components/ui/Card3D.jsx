@@ -23,12 +23,12 @@ const StyledWrapper = styled.div`
     inset: 8px;
     border-radius: 55px;
     border-top-right-radius: 100%;
-    background: linear-gradient(0deg, rgba(255, 255, 255, 0.349) 0%, rgba(255, 255, 255, 0.815) 100%);
+    background: linear-gradient(0deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.3) 100%);
     -webkit-backdrop-filter: blur(5px);
     backdrop-filter: blur(5px);
     transform: translate3d(0px, 0px, 25px);
-    border-left: 1px solid white;
-    border-bottom: 1px solid white;
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
     transition: all 0.5s ease-in-out;
   }
 
