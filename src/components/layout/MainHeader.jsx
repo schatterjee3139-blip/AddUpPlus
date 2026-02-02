@@ -107,9 +107,9 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
             )}
           </Button>
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 bg-card border border-border/50 rounded-lg shadow-lg z-50 w-80 max-h-96 overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between p-3 border-b border-border/50">
-                <h3 className="text-sm font-semibold">Notifications</h3>
+            <div className="absolute right-0 top-full mt-3 bg-card border border-border/40 rounded-xl shadow-elevated z-50 w-96 max-h-96 overflow-hidden flex flex-col backdrop-blur-sm bg-background/95">
+              <div className="flex items-center justify-between p-4 border-b border-border/30">
+                <h3 className="text-sm font-bold">Notifications</h3>
                 {unreadCount > 0 && (
                   <Button
                     variant="ghost"
