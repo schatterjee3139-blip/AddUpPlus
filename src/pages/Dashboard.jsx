@@ -402,6 +402,31 @@ export const Dashboard = ({ onNavigate }) => {
       </CardContent>
     </Card>
 
+    {/* Features Showcase - 3D Cards */}
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Featured Features</h2>
+      <div className="flex flex-wrap gap-6 justify-start">
+        <Card3D
+          title="Study Hub"
+          text="Master your subjects with interactive flashcards and personalized quizzes"
+          onViewMore={() => onNavigate && onNavigate('flashcards')}
+          onSocialClick={(idx) => console.log('Social clicked:', idx)}
+        />
+        <Card3D
+          title="Analytics"
+          text="Track your progress with detailed insights and performance metrics"
+          onViewMore={() => onNavigate && onNavigate('analytics')}
+          onSocialClick={(idx) => console.log('Social clicked:', idx)}
+        />
+        <Card3D
+          title="Live Tutoring"
+          text="Connect with expert tutors for real-time learning sessions"
+          onViewMore={() => onNavigate && onNavigate('tutors')}
+          onSocialClick={(idx) => console.log('Social clicked:', idx)}
+        />
+      </div>
+    </div>
+
     {/* Goals Section */}
     <GoalsSection currentUser={currentUser} />
   </div>
