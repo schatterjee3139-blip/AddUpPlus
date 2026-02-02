@@ -31,17 +31,17 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
   }, [showCreateModal, showNotifications]);
 
   return (
-    <header className="flex items-center justify-between h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-10">
+    <header className="flex items-center justify-between h-16 border-b border-border/30 bg-card/80 backdrop-blur-lg px-4 md:px-8 sticky top-0 z-10 shadow-soft">
       {/* Breadcrumbs */}
-      <div className="flex items-center text-sm font-medium text-muted-foreground">
+      <div className="flex items-center text-sm font-semibold text-muted-foreground gap-1">
         {breadcrumbs.map((crumb, index) => (
           <React.Fragment key={index}>
-            {index > 0 && <ChevronRight className="h-4 w-4 mx-1" />}
+            {index > 0 && <ChevronRight className="h-4 w-4 opacity-50" />}
             <span
               className={
                 index === breadcrumbs.length - 1
-                  ? 'text-foreground'
-                  : 'hover:text-foreground cursor-pointer'
+                  ? 'text-foreground font-bold'
+                  : 'hover:text-foreground cursor-pointer transition-colors'
               }
             >
               {crumb}
@@ -190,4 +190,3 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
     </header>
   );
 };
-
