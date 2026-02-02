@@ -26,7 +26,7 @@ export const CardTitle = forwardRef(({ className, as: Comp = 'h3', ...props }, r
   <Comp
     ref={ref}
     className={cn(
-      'text-base font-semibold leading-tight tracking-tight',
+      'text-2xl font-bold leading-tight tracking-tight',
       className
     )}
     {...props}
