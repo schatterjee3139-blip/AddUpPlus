@@ -442,45 +442,51 @@ const AppContentInner = () => {
           </CardHeader>
           <CardContent>
             {/* Role Selection */}
-            <div className="mb-6 space-y-3">
-              <label className="text-sm font-medium text-muted-foreground block">
-                Select your role
+            <div className="mb-8 space-y-4">
+              <label className="text-sm font-semibold text-foreground block">
+                Choose your role to get started
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => {
                     setUserRole('tutor');
                     setShowTutorSelection(true);
                   }}
-                  className={`p-4 rounded-lg border-2 transition-all ${
+                  className={`group relative p-5 rounded-xl border-2 transition-all duration-300 overflow-hidden ${
                     userRole === 'tutor'
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/15 shadow-glow'
+                      : 'border-border/60 hover:border-primary/50 bg-background/50 hover:bg-background/80'
                   }`}
                   disabled={authLoading}
                 >
-                  <GraduationCap className={`h-6 w-6 mx-auto mb-2 ${
-                    userRole === 'tutor' ? 'text-primary' : 'text-muted-foreground'
-                  }`} />
-                  <div className="text-sm font-medium">Tutor</div>
-                  <div className="text-xs text-muted-foreground mt-1">Room owner</div>
+                  <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+                  <div className="relative">
+                    <GraduationCap className={`h-7 w-7 mx-auto mb-3 transition-all duration-300 ${
+                      userRole === 'tutor' ? 'text-primary scale-110' : 'text-muted-foreground group-hover:text-primary group-hover:scale-110'
+                    }`} />
+                    <div className="text-sm font-semibold">Tutor</div>
+                    <div className="text-xs text-muted-foreground mt-1">Lead sessions</div>
+                  </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setUserRole('student')}
-                  className={`p-4 rounded-lg border-2 transition-all ${
+                  className={`group relative p-5 rounded-xl border-2 transition-all duration-300 overflow-hidden ${
                     userRole === 'student'
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/15 shadow-glow'
+                      : 'border-border/60 hover:border-primary/50 bg-background/50 hover:bg-background/80'
                   }`}
                   disabled={authLoading}
                 >
-                  <User className={`h-6 w-6 mx-auto mb-2 ${
-                    userRole === 'student' ? 'text-primary' : 'text-muted-foreground'
-                  }`} />
-                  <div className="text-sm font-medium">Student</div>
-                  <div className="text-xs text-muted-foreground mt-1">Participant</div>
+                  <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+                  <div className="relative">
+                    <User className={`h-7 w-7 mx-auto mb-3 transition-all duration-300 ${
+                      userRole === 'student' ? 'text-primary scale-110' : 'text-muted-foreground group-hover:text-primary group-hover:scale-110'
+                    }`} />
+                    <div className="text-sm font-semibold">Student</div>
+                    <div className="text-xs text-muted-foreground mt-1">Learn & practice</div>
+                  </div>
                 </button>
               </div>
             </div>
