@@ -57,8 +57,8 @@ export const MainHeader = ({ breadcrumbs, onNavigate }) => {
             <Plus className="h-4 w-4 mr-2" /> New
           </Button>
           {showCreateModal && (
-            <div className="absolute right-0 top-full mt-2 bg-card border border-border/50 rounded-lg shadow-lg z-50 min-w-[200px] p-1.5">
-              <div className="text-xs font-medium px-2 py-1.5 text-muted-foreground uppercase tracking-wide">
+            <div className="absolute right-0 top-full mt-3 bg-card border border-border/40 rounded-xl shadow-elevated z-50 min-w-[220px] p-2 backdrop-blur-sm bg-background/95">
+              <div className="text-xs font-bold px-3 py-2 text-muted-foreground uppercase tracking-wider">
                 Create New
               </div>
               <Button
