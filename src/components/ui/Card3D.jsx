@@ -79,7 +79,7 @@ const StyledWrapper = styled.div`
   .bottom .view-more .view-more-button {
     background: none;
     border: none;
-    color: #00c37b;
+    color: #ffffff;
     font-weight: bolder;
     font-size: 12px;
     cursor: pointer;
@@ -87,13 +87,13 @@ const StyledWrapper = styled.div`
 
   .bottom .view-more .svg {
     fill: none;
-    stroke: #00c37b;
+    stroke: #ffffff;
     stroke-width: 3px;
     max-height: 15px;
   }
 
   .bottom .social-buttons-container {
-    display: flex;
+    display: none;
     gap: 10px;
     transform-style: preserve-3d;
   }
