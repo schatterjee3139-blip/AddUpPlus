@@ -11,10 +11,10 @@ const StyledWrapper = styled.div`
   .card {
     height: 100%;
     border-radius: 50px;
-    background: linear-gradient(135deg, rgb(0, 255, 214) 0%, rgb(8, 226, 96) 100%);
+    background: linear-gradient(135deg, rgb(59, 130, 246) 0%, rgb(139, 92, 246) 100%);
     transition: all 0.5s ease-in-out;
     transform-style: preserve-3d;
-    box-shadow: rgba(5, 71, 17, 0) 40px 50px 25px -40px, rgba(5, 71, 17, 0.2) 0px 25px 25px -5px;
+    box-shadow: rgba(37, 99, 235, 0) 40px 50px 25px -40px, rgba(37, 99, 235, 0.2) 0px 25px 25px -5px;
   }
 
   .glass {
