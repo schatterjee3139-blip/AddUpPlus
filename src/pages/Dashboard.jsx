@@ -19,6 +19,7 @@ import {
   VideoIcon,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/Card';
+import { Card3D } from '../components/ui/Card3D';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/Avatar';
@@ -642,4 +643,3 @@ const GoalsSection = ({ currentUser }) => {
     </Card>
   );
 };
-
