@@ -418,12 +418,26 @@ const AppContentInner = () => {
   // Show auth screen only if user is not logged in and not a guest
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-4 text-foreground">
-        <Card className="w-full max-w-xl border border-border/60 bg-background/95 shadow-2xl backdrop-blur">
-          <CardHeader className="space-y-3 text-center">
-            <CardTitle className="text-3xl font-semibold">Welcome to AddUp+</CardTitle>
-            <CardDescription className="text-base">
-              {isLoginMode ? 'Sign in to access your study data' : 'Sign up to personalize your workspace and sync your study tools.'}
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-blue-900/20 to-purple-900/20 px-4 text-foreground overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl opacity-30"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/20 rounded-full blur-3xl opacity-30"></div>
+        </div>
+
+        <Card className="w-full max-w-xl border border-primary/20 bg-background/95 shadow-elevated backdrop-blur-xl relative z-10 animate-fade-in">
+          <CardHeader className="space-y-4 text-center pb-6">
+            <div className="inline-flex justify-center mb-2">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-50"></div>
+                <div className="relative bg-primary text-primary-foreground p-3 rounded-lg">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+              </div>
+            </div>
+            <CardTitle className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">Welcome to AddUp+</CardTitle>
+            <CardDescription className="text-base text-muted-foreground">
+              {isLoginMode ? 'Sign in to access your personalized study experience' : 'Create your account and start learning smarter today'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -785,4 +799,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
