@@ -5,7 +5,7 @@ export const Card = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      'rounded-lg border border-border/50 bg-card text-card-foreground shadow-sm',
+      'rounded-lg border border-border/40 bg-card text-card-foreground shadow-medium backdrop-blur-sm hover:shadow-elevated transition-all duration-300 hover:border-primary/30',
       className
     )}
     {...props}
@@ -58,5 +58,3 @@ export const CardFooter = forwardRef(({ className, ...props }, ref) => (
   />
 ));
 CardFooter.displayName = 'CardFooter';
-
-
