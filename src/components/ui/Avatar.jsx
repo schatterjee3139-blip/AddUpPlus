@@ -5,7 +5,7 @@ export const Avatar = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      'relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full',
+      'relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full shadow-medium border-2 border-primary/10',
       className
     )}
     {...props}
@@ -44,5 +44,3 @@ export const AvatarFallback = forwardRef(({ className, ...props }, ref) => (
   />
 ));
 AvatarFallback.displayName = 'AvatarFallback';
-
-
