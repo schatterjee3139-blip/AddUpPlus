@@ -535,16 +535,16 @@ const AppContentInner = () => {
 
             {/* Regular Auth Form (Students) or Tutor Password Form */}
             {(!userRole || userRole === 'student' || (userRole === 'tutor' && selectedTutor)) && (
-              <form className="space-y-6" onSubmit={(e) => handleAuthSubmit(e, userRole)}>
+              <form className="space-y-6 animate-fade-in" onSubmit={(e) => handleAuthSubmit(e, userRole)}>
                 {userRole === 'tutor' && selectedTutor && (
-                  <div className="mb-4 p-3 bg-muted rounded-lg">
-                    <div className="font-semibold">{selectedTutor.name}</div>
-                    <div className="text-sm text-muted-foreground">{selectedTutor.subject}</div>
+                  <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-xl">
+                    <div className="font-semibold text-primary">{selectedTutor.name}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{selectedTutor.subject}</div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="mt-2"
+                      className="mt-3 text-primary hover:text-primary/80"
                       onClick={() => {
                         setSelectedTutor(null);
                         setEmail('');
@@ -559,7 +559,7 @@ const AppContentInner = () => {
                 {userRole !== 'tutor' && !isLoginMode && (
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label htmlFor="firstName" className="text-sm font-medium text-muted-foreground">
+                      <label htmlFor="firstName" className="text-sm font-semibold text-foreground">
                         First name
                       </label>
                       <Input
@@ -572,7 +572,7 @@ const AppContentInner = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="lastName" className="text-sm font-medium text-muted-foreground">
+                      <label htmlFor="lastName" className="text-sm font-semibold text-foreground">
                         Last name
                       </label>
                       <Input
@@ -589,13 +589,13 @@ const AppContentInner = () => {
 
                 {userRole !== 'tutor' && (
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium text-muted-foreground">
-                      Email
+                    <label htmlFor="email" className="text-sm font-semibold text-foreground">
+                      Email address
                     </label>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="ada@example.com"
+                      placeholder="you@example.com"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       autoComplete="email"
@@ -605,13 +605,13 @@ const AppContentInner = () => {
                 )}
 
                 <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium text-muted-foreground">
-                    Password
+                  <label htmlFor="password" className="text-sm font-semibold text-foreground">
+                    {userRole === 'tutor' ? 'Tutor Password' : 'Password'}
                   </label>
                   <Input
                     id="password"
                     type="password"
-                    placeholder={userRole === 'tutor' ? 'Enter tutor password' : '••••••••'}
+                    placeholder={userRole === 'tutor' ? 'Enter tutor password' : 'At least 6 characters'}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete={isLoginMode ? "current-password" : "new-password"}
@@ -620,12 +620,12 @@ const AppContentInner = () => {
                 </div>
 
                 {authError && (
-                  <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                  <div className="rounded-lg bg-destructive/15 border border-destructive/30 p-4 text-sm text-destructive font-medium animate-slide-up">
                     {authError}
                   </div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={authLoading}>
+                <Button type="submit" className="w-full h-11 font-semibold text-base shadow-medium hover:shadow-elevated" disabled={authLoading}>
                   {authLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
