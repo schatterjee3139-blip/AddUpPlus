@@ -39,14 +39,14 @@ const StyledWrapper = styled.div`
 
   .content .title {
     display: block;
-    color: #00894d;
+    color: #ffffff;
     font-weight: 900;
     font-size: 20px;
   }
 
   .content .text {
     display: block;
-    color: rgba(0, 137, 78, 0.7647058824);
+    color: rgba(255, 255, 255, 0.85);
     font-size: 15px;
     margin-top: 20px;
   }
