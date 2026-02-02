@@ -38,7 +38,7 @@ Card.displayName = 'Card';
 export const CardHeader = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn('flex flex-col space-y-1.5 p-6 pb-4', className)}
+    className={cn('flex flex-col space-y-2 p-6 pb-4', className)}
     {...props}
   />
 ));
