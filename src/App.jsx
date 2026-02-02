@@ -493,9 +493,9 @@ const AppContentInner = () => {
 
             {/* Tutor Selection Screen */}
             {userRole === 'tutor' && showTutorSelection && !selectedTutor && (
-              <div className="space-y-4">
-                <div className="text-center mb-4">
-                  <p className="text-sm text-muted-foreground">Select your tutor account</p>
+              <div className="space-y-5 animate-slide-up">
+                <div className="text-center mb-6">
+                  <p className="text-sm font-medium text-muted-foreground">Select your tutor account</p>
                 </div>
                 <div className="space-y-3">
                   {[
@@ -511,9 +511,9 @@ const AppContentInner = () => {
                         setEmail(tutor.email);
                         setPassword('');
                       }}
-                      className="w-full p-4 rounded-lg border-2 border-border hover:border-primary/50 transition-all text-left"
+                      className="w-full group p-4 rounded-xl border-2 border-border/60 hover:border-primary/50 transition-all text-left bg-background/50 hover:bg-primary/5 hover:shadow-medium"
                     >
-                      <div className="font-semibold">{tutor.name}</div>
+                      <div className="font-semibold group-hover:text-primary transition-colors">{tutor.name}</div>
                       <div className="text-sm text-muted-foreground">{tutor.subject}</div>
                     </button>
                   ))}
@@ -521,14 +521,14 @@ const AppContentInner = () => {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full"
+                  className="w-full mt-4"
                   onClick={() => {
                     setUserRole(null);
                     setShowTutorSelection(false);
                     setSelectedTutor(null);
                   }}
                 >
-                  ← Back
+                  ← Back to roles
                 </Button>
               </div>
             )}
