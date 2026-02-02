@@ -1,16 +1,38 @@
 import React, { forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
-export const Card = forwardRef(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      'rounded-lg border border-border/40 bg-card text-card-foreground shadow-medium backdrop-blur-sm hover:shadow-elevated transition-all duration-300 hover:border-primary/30',
-      className
-    )}
-    {...props}
-  />
-));
+export const Card = forwardRef(({ className, ...props }, ref) => {
+  const { children, ...otherProps } = props;
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        'relative border border-white/40 dark:border-white/20 rounded-2xl overflow-hidden text-card-foreground transition-all duration-300 group',
+        className
+      )}
+      {...otherProps}
+    >
+      {/* Gradient border background */}
+      <div className="w-full h-full p-1 absolute inset-0 bg-gradient-to-br from-primary via-secondary to-accent opacity-80 dark:opacity-60 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="w-full h-full rounded-[20px] rounded-tr-[80px] rounded-br-[40px] bg-background dark:bg-slate-900" />
+      </div>
+
+      {/* Glass morphism overlay */}
+      <div className="w-full h-full absolute inset-0 backdrop-blur-xl rounded-2xl" />
+
+      {/* Floating gradient orb animation */}
+      <div className="w-full h-full absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 transition-opacity duration-500 pointer-events-none">
+        <div className="w-48 h-48 rounded-full bg-gradient-to-tr from-primary to-accent blur-3xl animate-spin" style={{animationDuration: '20s'}} />
+      </div>
+
+      {/* Content container */}
+      <div className="w-full h-full relative z-10">
+        {children}
+      </div>
+    </div>
+  );
+});
 Card.displayName = 'Card';
 
 export const CardHeader = forwardRef(({ className, ...props }, ref) => (
