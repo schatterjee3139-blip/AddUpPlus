@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { SparkleButton } from '../components/ui/SparkleButton';
 import { Input } from '../components/ui/Input';
 import { Progress } from '../components/ui/Progress';
 import { AIModal } from '../components/AIModal';
@@ -475,135 +476,128 @@ export const FlashcardView = () => {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6 bg-gradient-to-br from-background via-background to-primary/5 min-h-[calc(100vh-64px)]">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold">Flashcard Decks</h2>
-          <p className="text-muted-foreground mt-1">
-            Create and study flashcards from your notes
-          </p>
-        </div>
-        <Button 
-          onClick={() => setView('study')} 
-          disabled={!deck.length}
-          size="lg"
-          className="h-12"
-        >
-          <Play className="h-5 w-5 mr-2" /> Start Studying
-        </Button>
-      </div>
-      
-      {/* Deck Overview */}
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Layers className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-2xl">Your Flashcards</CardTitle>
-              <CardDescription className="text-base">
-                {deck.length
-                  ? `${deck.length} cards ready to study`
-                  : 'No cards yet. Generate flashcards from your notes below.'}
-              </CardDescription>
-            </div>
+    <div className="min-h-[calc(100vh-64px)] p-4 md:p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Flashcards</h1>
+            <p className="text-muted-foreground mt-1">
+              Paste notes on the left; AI generates cards. Your deck appears on the right.
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {deck.length > 0 && (
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <Input 
-                id="flashcard-search"
-                name="flashcard-search"
-                placeholder="Search cards..." 
-                className="max-w-xs h-11"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          )}
-          
-          <Card className="bg-gradient-to-r from-primary/5 to-transparent border-primary/20">
+          <Button
+            onClick={() => setView('study')}
+            disabled={!deck.length}
+            size="lg"
+            className="h-11 shrink-0"
+          >
+            <Play className="h-5 w-5 mr-2" /> Start Studying
+          </Button>
+        </div>
+
+        {/* Two columns: input (left) and deck (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: Your input — paste notes & generate */}
+          <Card className="flex flex-col lg:max-h-[calc(100vh-12rem)]">
             <CardHeader>
-              <div className="flex items-center gap-2">
+              <CardTitle className="text-lg flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
-                <CardTitle>Generate Cards From Notes</CardTitle>
-              </div>
+                Create from notes
+              </CardTitle>
               <CardDescription>
-                Paste any notes, bullet points, or lecture transcript to automatically create flashcards
+                Paste notes, bullet points, or a transcript. AI will turn them into flashcards.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex-1 flex flex-col gap-4 min-h-0">
               <Textarea
-                placeholder="Paste your notes here... (e.g., lecture notes, textbook summaries, study guides)"
+                placeholder="Paste your notes here... (e.g., lecture notes, textbook summaries)"
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
-                className="min-h-[120px] text-base"
+                className="min-h-[140px] text-base resize-y flex-1"
               />
               {notesError && (
-                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
                   {notesError}
                 </div>
               )}
               {generationError && (
-                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
                   {generationError}
                 </div>
               )}
               {generationStatus && (
-                <div className="p-3 rounded-md bg-green-500/10 border border-green-500/20 text-sm text-green-600 dark:text-green-400">
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-sm text-green-600 dark:text-green-400">
                   {generationStatus}
                 </div>
               )}
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleGenerateFromNotes} 
-                  disabled={isGenerating || !notesInput.trim()}
-                  size="lg"
-                  className="h-11"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-5 w-5 mr-2" /> Generate Flashcards
-                    </>
-                  )}
-                </Button>
+              <SparkleButton
+                onClick={handleGenerateFromNotes}
+                disabled={isGenerating || !notesInput.trim()}
+                loading={isGenerating}
+                className="w-full"
+              >
+                Generate
+              </SparkleButton>
+            </CardContent>
+          </Card>
+
+          {/* Right: Your deck — search and cards */}
+          <Card className="flex flex-col lg:max-h-[calc(100vh-12rem)] min-h-[320px]">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Layers className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Your deck</CardTitle>
+                  <CardDescription>
+                    {deck.length
+                      ? `${deck.length} card${deck.length === 1 ? '' : 's'} ready to study`
+                      : 'Generated cards will appear here'}
+                  </CardDescription>
+                </div>
+              </div>
+              {deck.length > 0 && (
+                <Input
+                  id="flashcard-search"
+                  placeholder="Search cards..."
+                  className="w-full sm:w-48 h-9 text-sm"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              )}
+            </CardHeader>
+            <CardContent className="flex-1 overflow-auto min-h-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {filteredDeck.length > 0 ? (
+                  filteredDeck.map((card) => (
+                    <Card
+                      key={card.id}
+                      className="p-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors line-clamp-2"
+                      onClick={() => {
+                        const index = deck.findIndex((item) => item.id === card.id);
+                        if (index >= 0) {
+                          setCurrentCardIndex(index);
+                          setView('study');
+                        }
+                      }}
+                    >
+                      {card.front}
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-full rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    {deck.length
+                      ? 'No cards match your search.'
+                      : 'Paste notes on the left and click Generate to create flashcards.'}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredDeck.length > 0 ? (
-              filteredDeck.map((card) => (
-                <Card 
-                  key={card.id} 
-                  className="p-4 text-sm cursor-pointer hover:bg-accent transition-colors"
-                  onClick={() => {
-                    const index = deck.findIndex((item) => item.id === card.id);
-                    if (index >= 0) {
-                      setCurrentCardIndex(index);
-                      setView('study');
-                    }
-                  }}
-                >
-                  {card.front}
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-full rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                {deck.length
-                  ? 'No cards match your search.'
-                  : 'Your deck is empty. Generate flashcards from your notes to get started.'}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      
+        </div>
+      </div>
+
       <AIModal
         isOpen={isAIModalOpen}
         onClose={() => {

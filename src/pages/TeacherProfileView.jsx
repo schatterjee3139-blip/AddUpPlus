@@ -35,6 +35,7 @@ import {
 } from 'recharts';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { SparkleButton } from '../components/ui/SparkleButton';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { Textarea } from '../components/ui/Textarea';
@@ -596,57 +597,57 @@ const TeacherAnalysisView = ({ teacher, onGenerate, isGenerating }) => {
 
       {/* Generate Content Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Button
-          variant="outline"
-          className="h-auto p-4 flex flex-col items-start"
-          onClick={() => onGenerate('practice-questions')}
-          disabled={isGenerating}
-        >
-          <BookOpen className="h-5 w-5 mb-2" />
+        <div className="rounded-lg border border-border p-4 flex flex-col items-start gap-2">
+          <BookOpen className="h-5 w-5 text-muted-foreground" />
           <span className="font-semibold">Practice Questions</span>
-          <span className="text-xs text-muted-foreground mt-1">
-            Teacher-style questions
-          </span>
-        </Button>
+          <span className="text-xs text-muted-foreground">Teacher-style questions</span>
+          <SparkleButton
+            onClick={() => onGenerate('practice-questions')}
+            disabled={isGenerating}
+            loading={isGenerating}
+          >
+            Generate
+          </SparkleButton>
+        </div>
 
-        <Button
-          variant="outline"
-          className="h-auto p-4 flex flex-col items-start"
-          onClick={() => onGenerate('study-guide')}
-          disabled={isGenerating}
-        >
-          <FileText className="h-5 w-5 mb-2" />
+        <div className="rounded-lg border border-border p-4 flex flex-col items-start gap-2">
+          <FileText className="h-5 w-5 text-muted-foreground" />
           <span className="font-semibold">Study Guide</span>
-          <span className="text-xs text-muted-foreground mt-1">
-            What your teacher emphasizes
-          </span>
-        </Button>
+          <span className="text-xs text-muted-foreground">What your teacher emphasizes</span>
+          <SparkleButton
+            onClick={() => onGenerate('study-guide')}
+            disabled={isGenerating}
+            loading={isGenerating}
+          >
+            Generate
+          </SparkleButton>
+        </div>
 
-        <Button
-          variant="outline"
-          className="h-auto p-4 flex flex-col items-start"
-          onClick={() => onGenerate('test-prediction')}
-          disabled={isGenerating}
-        >
-          <Target className="h-5 w-5 mb-2" />
+        <div className="rounded-lg border border-border p-4 flex flex-col items-start gap-2">
+          <Target className="h-5 w-5 text-muted-foreground" />
           <span className="font-semibold">Test Prediction</span>
-          <span className="text-xs text-muted-foreground mt-1">
-            Probability heatmap
-          </span>
-        </Button>
+          <span className="text-xs text-muted-foreground">Probability heatmap</span>
+          <SparkleButton
+            onClick={() => onGenerate('test-prediction')}
+            disabled={isGenerating}
+            loading={isGenerating}
+          >
+            Generate
+          </SparkleButton>
+        </div>
 
-        <Button
-          variant="outline"
-          className="h-auto p-4 flex flex-col items-start"
-          onClick={() => onGenerate('essay-grader')}
-          disabled={isGenerating}
-        >
-          <CheckCircle className="h-5 w-5 mb-2" />
+        <div className="rounded-lg border border-border p-4 flex flex-col items-start gap-2">
+          <CheckCircle className="h-5 w-5 text-muted-foreground" />
           <span className="font-semibold">Essay Grader</span>
-          <span className="text-xs text-muted-foreground mt-1">
-            Grade like your teacher
-          </span>
-        </Button>
+          <span className="text-xs text-muted-foreground">Grade like your teacher</span>
+          <SparkleButton
+            onClick={() => onGenerate('essay-grader')}
+            disabled={isGenerating}
+            loading={isGenerating}
+          >
+            Generate
+          </SparkleButton>
+        </div>
       </div>
     </div>
   );

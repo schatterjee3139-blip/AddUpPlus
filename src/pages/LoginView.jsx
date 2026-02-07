@@ -21,7 +21,7 @@ export const LoginView = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+    <div className="min-h-screen flex items-center justify-center p-6 login-page-bg">
       <Card className="w-full max-w-md border-0 shadow-sm">
         <CardHeader className="text-center pb-6">
           <CardTitle className="text-2xl font-semibold mb-2">Welcome</CardTitle>

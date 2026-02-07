@@ -418,18 +418,13 @@ const AppContentInner = () => {
   // Show auth screen only if user is not logged in and not a guest
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-blue-900/20 to-purple-900/20 px-4 text-foreground overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl opacity-30"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/20 rounded-full blur-3xl opacity-30"></div>
-        </div>
-
+      <div className="fixed inset-0 flex items-center justify-center px-4 text-foreground overflow-hidden">
+        <div className="login-page-bg fixed inset-0 -z-10" aria-hidden="true" />
         <Card className="w-full max-w-xl border border-primary/20 bg-background/95 shadow-elevated backdrop-blur-xl relative z-10 animate-fade-in">
           <CardHeader className="space-y-4 text-center pb-6">
             <div className="inline-flex justify-center mb-2">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-50"></div>
+                <div className="absolute inset-0 bg-gradient-primary rounded-lg blur-lg opacity-50" />
                 <div className="relative bg-primary text-primary-foreground p-3 rounded-lg">
                   <Sparkles className="h-6 w-6" />
                 </div>
@@ -449,10 +444,7 @@ const AppContentInner = () => {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setUserRole('tutor');
-                    setShowTutorSelection(true);
-                  }}
+                  onClick={() => { setUserRole('tutor'); setShowTutorSelection(true); }}
                   className={`group relative p-5 rounded-xl border-2 transition-all duration-300 overflow-hidden ${
                     userRole === 'tutor'
                       ? 'border-primary bg-primary/15 shadow-glow'
@@ -460,7 +452,7 @@ const AppContentInner = () => {
                   }`}
                   disabled={authLoading}
                 >
-                  <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
                   <div className="relative">
                     <GraduationCap className={`h-7 w-7 mx-auto mb-3 transition-all duration-300 ${
                       userRole === 'tutor' ? 'text-primary scale-110' : 'text-muted-foreground group-hover:text-primary group-hover:scale-110'
@@ -479,7 +471,7 @@ const AppContentInner = () => {
                   }`}
                   disabled={authLoading}
                 >
-                  <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-5 transition-opacity duration-300" />
                   <div className="relative">
                     <User className={`h-7 w-7 mx-auto mb-3 transition-all duration-300 ${
                       userRole === 'student' ? 'text-primary scale-110' : 'text-muted-foreground group-hover:text-primary group-hover:scale-110'
@@ -506,11 +498,7 @@ const AppContentInner = () => {
                     <button
                       key={tutor.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedTutor(tutor);
-                        setEmail(tutor.email);
-                        setPassword('');
-                      }}
+                      onClick={() => { setSelectedTutor(tutor); setEmail(tutor.email); setPassword(''); }}
                       className="w-full group p-4 rounded-xl border-2 border-border/60 hover:border-primary/50 transition-all text-left bg-background/50 hover:bg-primary/5 hover:shadow-medium"
                     >
                       <div className="font-semibold group-hover:text-primary transition-colors">{tutor.name}</div>
@@ -522,11 +510,7 @@ const AppContentInner = () => {
                   type="button"
                   variant="ghost"
                   className="w-full mt-4"
-                  onClick={() => {
-                    setUserRole(null);
-                    setShowTutorSelection(false);
-                    setSelectedTutor(null);
-                  }}
+                  onClick={() => { setUserRole(null); setShowTutorSelection(false); setSelectedTutor(null); }}
                 >
                   ← Back to roles
                 </Button>
@@ -545,11 +529,7 @@ const AppContentInner = () => {
                       variant="ghost"
                       size="sm"
                       className="mt-3 text-primary hover:text-primary/80"
-                      onClick={() => {
-                        setSelectedTutor(null);
-                        setEmail('');
-                        setPassword('');
-                      }}
+                      onClick={() => { setSelectedTutor(null); setEmail(''); setPassword(''); }}
                     >
                       ← Change tutor
                     </Button>
@@ -559,27 +539,23 @@ const AppContentInner = () => {
                 {userRole !== 'tutor' && !isLoginMode && (
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label htmlFor="firstName" className="text-sm font-semibold text-foreground">
-                        First name
-                      </label>
+                      <label htmlFor="firstName" className="text-sm font-semibold text-foreground">First name</label>
                       <Input
                         id="firstName"
                         placeholder="Ada"
                         value={firstName}
-                        onChange={(event) => setFirstName(event.target.value)}
+                        onChange={(e) => setFirstName(e.target.value)}
                         autoComplete="given-name"
                         disabled={authLoading}
                       />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor="lastName" className="text-sm font-semibold text-foreground">
-                        Last name
-                      </label>
+                      <label htmlFor="lastName" className="text-sm font-semibold text-foreground">Last name</label>
                       <Input
                         id="lastName"
                         placeholder="Lovelace"
                         value={lastName}
-                        onChange={(event) => setLastName(event.target.value)}
+                        onChange={(e) => setLastName(e.target.value)}
                         autoComplete="family-name"
                         disabled={authLoading}
                       />
@@ -589,15 +565,13 @@ const AppContentInner = () => {
 
                 {userRole !== 'tutor' && (
                   <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-semibold text-foreground">
-                      Email address
-                    </label>
+                    <label htmlFor="email" className="text-sm font-semibold text-foreground">Email address</label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="you@example.com"
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={(e) => setEmail(e.target.value)}
                       autoComplete="email"
                       disabled={authLoading || userRole === 'tutor'}
                     />
@@ -613,8 +587,8 @@ const AppContentInner = () => {
                     type="password"
                     placeholder={userRole === 'tutor' ? 'Enter tutor password' : 'At least 6 characters'}
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete={isLoginMode ? "current-password" : "new-password"}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isLoginMode ? 'current-password' : 'new-password'}
                     disabled={authLoading}
                   />
                 </div>
@@ -636,7 +610,6 @@ const AppContentInner = () => {
                   )}
                 </Button>
 
-                {/* Google Sign-in - Only for students */}
                 {userRole !== 'tutor' && (
                   <>
                     <div className="relative my-6">
@@ -647,7 +620,6 @@ const AppContentInner = () => {
                         <span className="bg-background px-3 text-muted-foreground font-medium">Or continue with</span>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-3">
                       <Button
                         type="button"
@@ -657,22 +629,10 @@ const AppContentInner = () => {
                         disabled={authLoading}
                       >
                         <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                          <path
-                            fill="#4285F4"
-                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                          />
-                          <path
-                            fill="#34A853"
-                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                          />
-                          <path
-                            fill="#FBBC05"
-                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                          />
-                          <path
-                            fill="#EA4335"
-                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                          />
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                         </svg>
                         {authLoading ? '...' : 'Google'}
                       </Button>
@@ -694,10 +654,7 @@ const AppContentInner = () => {
                   <div className="text-center text-sm pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsLoginMode(!isLoginMode);
-                        setAuthError('');
-                      }}
+                      onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }}
                       className="text-primary font-semibold hover:text-primary/80 transition-colors"
                       disabled={authLoading}
                     >
@@ -756,8 +713,13 @@ const AppContentInner = () => {
         }}
         onNavigate={setCurrentPage}
       />
-        <div className="h-[calc(100vh-64px)] overflow-y-auto">
-          {renderPage()}
+        {/* Single page-level gradient: cards are glass over this, no per-card gradient */}
+        <div
+          className="h-[calc(100vh-64px)] overflow-y-auto min-h-full bg-gradient-to-br from-slate-100/90 via-background to-slate-200/70 dark:from-slate-950 dark:via-[hsl(222,47%,6%)] dark:to-slate-900/90"
+        >
+          <div className="relative min-h-full text-foreground">
+            {renderPage()}
+          </div>
         </div>
       </main>
 

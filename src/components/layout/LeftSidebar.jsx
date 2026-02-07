@@ -8,9 +8,6 @@ import {
   Calendar,
   BarChart3,
   Settings,
-  Sun,
-  Moon,
-  Laptop,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -24,7 +21,7 @@ import {
 import { Button } from '../ui/Button';
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/Avatar';
 import { TooltipWrapper } from '../ui/Tooltip';
-import { useTheme } from '../../contexts/ThemeContext';
+import { ThemeSwitch } from '../ui/ThemeSwitch';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '../../lib/utils';
 
@@ -64,36 +61,11 @@ const NavItem = ({ item, currentPage, onNavigate, isCollapsed }) => (
   </TooltipWrapper>
 );
 
-const ThemeToggle = ({ isCollapsed }) => {
-  const { theme, setTheme } = useTheme();
-
-  const themes = [
-    { name: 'Light', value: 'light', icon: Sun },
-    { name: 'Dark', value: 'dark', icon: Moon },
-    { name: 'System', value: 'system', icon: Laptop },
-  ];
-
-  const currentTheme = themes.find((t) => t.value === theme);
-  const nextTheme = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
-
-  return (
-    <TooltipWrapper
-      content={
-        isCollapsed ? `Toggle theme (${nextTheme.name})` : `Toggle theme`
-      }
-    >
-      <Button
-        variant="ghost"
-        size={isCollapsed ? 'icon' : 'default'}
-        className={cn('w-full', isCollapsed ? '' : 'justify-start')}
-        onClick={() => setTheme(nextTheme.value)}
-      >
-        <currentTheme.icon className={cn('h-5 w-5', isCollapsed ? '' : 'mr-3')} />
-        {!isCollapsed && <span>{currentTheme.name}</span>}
-      </Button>
-    </TooltipWrapper>
-  );
-};
+const ThemeToggle = () => (
+  <div className="flex w-full justify-center">
+    <ThemeSwitch />
+  </div>
+);
 
 export const LeftSidebar = ({
   currentPage,
@@ -188,9 +160,13 @@ export const LeftSidebar = ({
         ))}
       </nav>
 
+      {/* Theme toggle – centered in sidebar */}
+      <div className="flex flex-1 items-center justify-center py-4">
+        <ThemeToggle isCollapsed={isCollapsed} />
+      </div>
+
       {/* Footer */}
       <div className="mt-auto p-2 space-y-2 border-t border-border/50">
-        <ThemeToggle isCollapsed={isCollapsed} />
         {userProfile && (
           <>
             <TooltipWrapper content={isCollapsed ? displayName : null}>

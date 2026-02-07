@@ -7,15 +7,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/Avatar';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  Sun, 
-  Moon, 
-  Laptop, 
-  Palette, 
-  Type, 
-  User, 
-  Upload, 
-  X, 
-  Save, 
+  Laptop,
+  Palette,
+  Type,
+  User,
+  Upload,
+  X,
+  Save,
   Bell,
   Download,
   Trash2,
@@ -23,6 +21,7 @@ import {
   Database,
   ExternalLink
 } from 'lucide-react';
+import { ThemeSwitch } from '../components/ui/ThemeSwitch';
 import { updateProfile } from 'firebase/auth';
 import { auth, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -265,30 +264,18 @@ export const SettingsView = () => {
           {/* Theme Selection */}
           <div className="space-y-3">
             <Label>Theme</Label>
-            <div className="flex gap-2">
-              <Button
-                variant={theme === 'light' ? 'default' : 'outline'}
-                onClick={() => setTheme('light')}
-                className="flex-1"
-              >
-                <Sun className="mr-2 h-4 w-4" />
-                Light
-              </Button>
-              <Button
-                variant={theme === 'dark' ? 'default' : 'outline'}
-                onClick={() => setTheme('dark')}
-                className="flex-1"
-              >
-                <Moon className="mr-2 h-4 w-4" />
-                Dark
-              </Button>
+            <div className="flex flex-wrap items-center gap-4">
+              <ThemeSwitch />
+              <span className="text-sm text-muted-foreground">
+                {theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'Following system'}
+              </span>
               <Button
                 variant={theme === 'system' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setTheme('system')}
-                className="flex-1"
               >
                 <Laptop className="mr-2 h-4 w-4" />
-                System
+                Use system preference
               </Button>
             </div>
           </div>

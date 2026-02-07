@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { SparkleButton } from '../components/ui/SparkleButton';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Label } from '../components/ui/Label';
@@ -287,24 +288,14 @@ Return ONLY valid JSON array, no markdown, no code blocks, no explanations. Exam
             </div>
           )}
 
-          <Button
+          <SparkleButton
             onClick={handleGenerate}
             disabled={isGenerating || !examDate || !topics.trim()}
             className="w-full"
-            size="lg"
+            loading={isGenerating}
           >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating Study Plan...
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Study Plan
-              </>
-            )}
-          </Button>
+            Generate
+          </SparkleButton>
         </CardContent>
       </Card>
 

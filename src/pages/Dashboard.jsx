@@ -193,7 +193,7 @@ export const Dashboard = ({ onNavigate }) => {
       {/* XP and Level Section */}
       {derived.xpProgress && (
         <CardContent className="pt-2">
-          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-5 border-0">
+          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-0 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -217,43 +217,43 @@ export const Dashboard = ({ onNavigate }) => {
                 transition={{ duration: 1, ease: 'easeOut' }}
               />
             </div>
-          </div>
+          </Card>
         </CardContent>
       )}
       <CardContent className="pt-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Study Time</p>
-                <Clock className="h-4 w-4 text-muted-foreground/60" />
-              </div>
-              <p className="text-2xl font-semibold mb-1">{(metrics.studyMinutes / 60).toFixed(1)}h</p>
-              <p className="text-xs text-muted-foreground">{metrics.studyMinutes} min</p>
-          </div>
-          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Flashcards</p>
-                <BookOpen className="h-4 w-4 text-muted-foreground/60" />
-              </div>
-              <p className="text-2xl font-semibold mb-1">{metrics.flashcardsReviewed}</p>
-              <p className="text-xs text-muted-foreground">{derived.flashcardAccuracy}% accuracy</p>
-          </div>
-          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quizzes</p>
-                <CheckCircle className="h-4 w-4 text-muted-foreground/60" />
-              </div>
-              <p className="text-2xl font-semibold mb-1">{metrics.quizzesCompleted}</p>
-              <p className="text-xs text-muted-foreground">{derived.averageQuizScore}% average</p>
-          </div>
-          <div className="p-5 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Interactions</p>
-                <Sparkles className="h-4 w-4 text-muted-foreground/60" />
-              </div>
-              <p className="text-2xl font-semibold mb-1">{metrics.aiInteractions}</p>
-              <p className="text-xs text-muted-foreground">Questions asked</p>
-          </div>
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Study Time</p>
+              <Clock className="h-4 w-4 text-muted-foreground/60" />
+            </div>
+            <p className="text-2xl font-semibold mb-1">{(metrics.studyMinutes / 60).toFixed(1)}h</p>
+            <p className="text-xs text-muted-foreground">{metrics.studyMinutes} min</p>
+          </Card>
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Flashcards</p>
+              <BookOpen className="h-4 w-4 text-muted-foreground/60" />
+            </div>
+            <p className="text-2xl font-semibold mb-1">{metrics.flashcardsReviewed}</p>
+            <p className="text-xs text-muted-foreground">{derived.flashcardAccuracy}% accuracy</p>
+          </Card>
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quizzes</p>
+              <CheckCircle className="h-4 w-4 text-muted-foreground/60" />
+            </div>
+            <p className="text-2xl font-semibold mb-1">{metrics.quizzesCompleted}</p>
+            <p className="text-xs text-muted-foreground">{derived.averageQuizScore}% average</p>
+          </Card>
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Interactions</p>
+              <Sparkles className="h-4 w-4 text-muted-foreground/60" />
+            </div>
+            <p className="text-2xl font-semibold mb-1">{metrics.aiInteractions}</p>
+            <p className="text-xs text-muted-foreground">Questions asked</p>
+          </Card>
         </div>
       </CardContent>
     </Card>
@@ -289,7 +289,7 @@ export const Dashboard = ({ onNavigate }) => {
               });
 
               return (
-                <div key={appointment.id} className="p-4 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors">
+                <Card key={appointment.id} className="p-4">
                     <div className="flex items-start gap-4">
                       <Avatar className="w-12 h-12 flex-shrink-0">
                         <AvatarImage 
@@ -326,7 +326,7 @@ export const Dashboard = ({ onNavigate }) => {
                         </Button>
                       </div>
                     </div>
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -351,19 +351,16 @@ export const Dashboard = ({ onNavigate }) => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {earnedBadges.map((badge) => (
-              <motion.div
-                key={badge.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-4 rounded-lg bg-muted/30 border-0 hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="text-3xl">{badge.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm mb-1">{badge.name}</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{badge.description}</p>
+              <motion.div key={badge.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                <Card className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-3xl">{badge.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm mb-1">{badge.name}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{badge.description}</p>
+                    </div>
                   </div>
-                </div>
+                </Card>
               </motion.div>
             ))}
           </div>
@@ -377,13 +374,13 @@ export const Dashboard = ({ onNavigate }) => {
               {Object.values(BADGES).slice(0, 8).map((badge) => {
                 const isEarned = earnedBadges.some(b => b.id === badge.id);
                 return (
-                  <div
+                  <Card
                     key={badge.id}
                     className={cn(
-                      "p-3 rounded-lg text-center transition-all border-0",
+                      "p-3 text-center transition-all",
                       isEarned
-                        ? "bg-primary/10"
-                        : "bg-muted/30 opacity-50"
+                        ? "bg-primary/10 border-primary/20"
+                        : "opacity-50"
                     )}
                   >
                     <div className="text-xl mb-1">{badge.icon}</div>
@@ -393,7 +390,7 @@ export const Dashboard = ({ onNavigate }) => {
                         <CheckCircle className="h-3 w-3 text-primary mx-auto" />
                       </div>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
