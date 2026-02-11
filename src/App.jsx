@@ -24,6 +24,7 @@ import { StudyPlanView } from './pages/StudyPlanView';
 import TeacherProfileView from './pages/TeacherProfileView';
 import { VideoCallView } from './pages/VideoCallView';
 import { LoginView } from './pages/LoginView';
+import { WelcomeAnimation } from './components/WelcomeAnimation';
 import { TutorDashboard } from './pages/TutorDashboard';
 import { PhysicsMechanicsView } from './pages/PhysicsMechanicsView';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/Card';
@@ -65,6 +66,7 @@ const AppContentInner = () => {
   const [roleLoading, setRoleLoading] = useState(true);
   const [selectedTutor, setSelectedTutor] = useState(null); // Selected tutor for login
   const [showTutorSelection, setShowTutorSelection] = useState(false);
+  const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
 
   // Load user role from Firestore or sessionStorage
   useEffect(() => {
@@ -220,6 +222,7 @@ const AppContentInner = () => {
         // For now, we'll use a custom approach
         window.dispatchEvent(new CustomEvent('tutor-login', { detail: tutorUser }));
         
+        setShowWelcomeAnimation(true);
         // Clear form
         setPassword('');
         setSelectedTutor(null);
@@ -233,6 +236,7 @@ const AppContentInner = () => {
         if (role && userCredential?.user?.uid) {
           await updateUserRole(userCredential.user.uid, role);
         }
+        setShowWelcomeAnimation(true);
       } else {
         const trimmedFirst = firstName.trim();
         const trimmedLast = lastName.trim();
@@ -246,6 +250,7 @@ const AppContentInner = () => {
         if (role && userCredential?.user?.uid) {
           await updateUserRole(userCredential.user.uid, role);
         }
+        setShowWelcomeAnimation(true);
       }
     } catch (error) {
       setAuthError(error.message || 'Authentication failed. Please try again.');
@@ -280,6 +285,7 @@ const AppContentInner = () => {
           await updateUserRole(userCredential.user.uid, role);
         }
       }
+      setShowWelcomeAnimation(true);
     } catch (error) {
       setAuthError(error.message || 'Google sign-in failed. Please try again.');
     } finally {
@@ -297,6 +303,7 @@ const AppContentInner = () => {
         sessionStorage.setItem('isTutor', role === 'tutor' ? 'true' : 'false');
         setUserRole(role);
       }
+      setShowWelcomeAnimation(true);
     } catch (error) {
       setAuthError(error.message || 'Guest sign-in failed. Please try again.');
     } finally {
@@ -668,6 +675,11 @@ const AppContentInner = () => {
         </Card>
       </div>
     );
+  }
+
+  // Show welcome animation after login
+  if (currentUser && showWelcomeAnimation) {
+    return <WelcomeAnimation onComplete={() => setShowWelcomeAnimation(false)} />;
   }
 
   // Show loading while role is being determined
